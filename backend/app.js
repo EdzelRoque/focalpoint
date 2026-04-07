@@ -1,6 +1,7 @@
 import express from 'express';
 import session from 'express-session';
 import configRoutes from './routes/index.js';
+import jwt from 'jsonwebtoken';
 
 const app = express();
 
