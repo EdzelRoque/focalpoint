@@ -98,9 +98,9 @@ export const getSessionsByUserId = async (userId) => {
     userId = validateId(userId);
 
     // Find all sessions for the given userId
-    const userSessions = await sessionCollection.find({ userId: new ObjectId(userId) }).toArray();
+    let userSessions = await sessionCollection.find({ userId: new ObjectId(userId) }).toArray();
 
-    userSessions.map(session => {
+    userSessions = userSessions.map(session => {
         session._id = session._id.toString();
         session.userId = session.userId.toString();
         return session;

@@ -1,6 +1,6 @@
 import Router from 'express';
 import { sessionData } from '../data/index.js';
-import authMiddleware from '../middleware/authMiddleware.js';
+import authMiddleware from '../middleware/auth.js';
 import {
     validateId,
     validateSessionGoal,
@@ -12,7 +12,7 @@ const router = Router();
 router.route('/sessions')
     .get(authMiddleware, async (req, res) => {
         // Get userId from the authenticated user
-        const userId = req.user.userId;
+        let userId = req.user.userId;
 
         // Validate userId
         try {
@@ -21,6 +21,7 @@ router.route('/sessions')
             return res.status(400).json({ error: error });
         }
 
+        // Call the getSessionsByUserId function from sessionData
         try {
             const sessions = await sessionData.getSessionsByUserId(userId);
             return res.json(sessions);
@@ -30,7 +31,7 @@ router.route('/sessions')
     })
     .post(authMiddleware, async (req, res) => {
         // Get userId from the authenticated user and session information from the request body
-        const userId = req.user.userId;
+        let userId = req.user.userId;
         let sessionInfo = req.body;
         if (!sessionInfo || Object.keys(sessionInfo).length === 0) return res.status(400).json({ error: 'You must provide session information' });
 
@@ -58,8 +59,8 @@ router.route('/sessions')
 router.route('/sessions/:id')
     .get(authMiddleware, async (req, res) => {
         // Get userId from the authenticated user and sessionId from the URL parameters
-        const userId = req.user.userId;
-        const sessionId = req.params.id;
+        let userId = req.user.userId;
+        let sessionId = req.params.id;
 
         // Validate userId and sessionId
         try {
@@ -71,7 +72,7 @@ router.route('/sessions/:id')
 
         // Call the getSessionById function from sessionData
         try {
-            const session = await sessionData.getSessionById(sessionId);
+            let session = await sessionData.getSessionById(sessionId);
             if (!session) {
                 return res.status(404).json({ error: 'Session not found' });
             }
@@ -82,8 +83,8 @@ router.route('/sessions/:id')
     })
     .put(authMiddleware, async (req, res) => {
         // Get sessionId from the URL parameters
-        const userId = req.user.userId;
-        const sessionId = req.params.id;
+        let userId = req.user.userId;
+        let sessionId = req.params.id;
 
         // Validate userId and sessionId
         try {
@@ -101,3 +102,5 @@ router.route('/sessions/:id')
             return res.status(500).json({ error: error });
         }
     });
+
+export default router;

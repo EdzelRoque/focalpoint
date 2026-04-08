@@ -54,13 +54,6 @@ const validateId = (id) => {
     id = validateString(id, 'ID');
     if (!ObjectId.isValid(id)) throw 'Invalid ID';
     return id;
-}
-
-const validateTimeString = (time) => {
-    time = validateString(time, 'Time');
-    const timeRegex = /^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/; // Matches HH:MM:SS format (24-hour)
-    if (!timeRegex.test(time)) throw 'Time must be in HH:MM:SS format (24-hour)';
-    return time;
 };
 
 const validateTimeDuration = (duration) => {
@@ -70,29 +63,10 @@ const validateTimeDuration = (duration) => {
     return duration;
 };
 
-const validate = (startTime, endTime) => {
-    const [startHours, startMinutes, startSeconds] = startTime.split(':').map(Number);
-    const [endHours, endMinutes, endSeconds] = endTime.split(':').map(Number);
-
-    if (startHours < 0 || startHours > 23 || startMinutes < 0 || startMinutes > 59 || startSeconds < 0 || startSeconds > 59) {
-        throw 'Invalid start time';
-    }
-
-    if (endHours < 0 || endHours > 23 || endMinutes < 0 || endMinutes > 59 || endSeconds < 0 || endSeconds > 59) {
-        throw 'Invalid end time';
-    }
-
-    if (startHours > endHours || (startHours === endHours && startMinutes > endMinutes) || (startHours === endHours && startMinutes === endMinutes && startSeconds > endSeconds)) {
-        throw 'Start time must be before end time';
-    }
-
-    return { startTime, endTime };
-};
-
 const validateSessionGoal = (sessionGoal) => {
     sessionGoal = validateString(sessionGoal, 'Session Goal');
     if (sessionGoal.length < 10) throw 'Session goal must be at least 10 characters long';
     return sessionGoal;
-}
+};
 
-export { validateUsername, validateEmail, validatePassword, validateUserId, validateTimeString, validateTimeInterval, validateSessionGoal };
+export { validateUsername, validateEmail, validatePassword, validateId, validateTimeDuration, validateSessionGoal };
