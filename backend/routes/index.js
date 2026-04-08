@@ -1,4 +1,4 @@
-import { userRoutes } from './users.js';
+import userRoutes from './userRoutes.js';
 
 const constructorMethod = (app) => {
     app.use('/auth', userRoutes);

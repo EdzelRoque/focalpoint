@@ -1,16 +1,16 @@
 import { Router } from 'express';
 import { userData } from '../data/index.js';
-import { ObjectId } from 'mongodb';
 import jwt from 'jsonwebtoken';
 import { 
     validateUsername, 
     validateEmail, 
-    validatePassword } from '../helpers.js';
+    validatePassword } from '../validation.js';
 
 const router = Router();
 
 router.route('/register')
     .post(async (req, res) => {
+        // Get user information from the request body
         let userInfo = req.body;
         if (!userInfo || Object.keys(userInfo).length === 0) return res.status(400).json({ error: 'You must provide user information' });
         
@@ -28,7 +28,7 @@ router.route('/register')
         try {
             const newUser = await userData.register(username, email, password);
             return res.json(newUser);
-        } catch (error) {r
+        } catch (error) {
             if (error === 'Username is already taken' || error === 'Email is already registered') {
                 return res.status(409).json({ error: error });
             }
@@ -38,6 +38,7 @@ router.route('/register')
 
 router.route('/login')
     .post(async (req, res) => {
+        // Get user information from the request body
         let userInfo = req.body;
         if (!userInfo || Object.keys(userInfo).length === 0) return res.status(400).json({ error: 'You must provide user information' });
 
@@ -66,7 +67,5 @@ router.route('/login')
             return res.status(401).json({ error: error });
         }
     });
-
-
 
 export default router;
