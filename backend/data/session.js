@@ -30,7 +30,9 @@ export const createSession = async (userId, sessionGoal, durationInMinutes=null)
         startTime: startTime,
         expectedEndTime: expectedEndTime,
         actualEndTime: null,
-        isActive: true
+        isActive: true,
+        blockedCount: 0,
+        overriddenCount: 0
     };
 
     // Insert the new session into the database

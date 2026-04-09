@@ -40,15 +40,16 @@ router.route('/login')
     .post(async (req, res) => {
         // Get user information from the request body
         let userInfo = req.body;
-        if (!userInfo || Object.keys(userInfo).length === 0) return res.status(400).json({ error: 'You must provide user information' });
+        if (!userInfo || Object.keys(userInfo).length === 0) return res.status(400).json({ error: 'You must provide credentials' });
 
         // Validate userInfo fields (email, password)
         let { email, password } = userInfo;
         try {
             email = validateEmail(email);
-            password = validatePassword(password);
+            if (!password || typeof password !== 'string' || password.trim().length === 0) throw 'Invalid email or password';
+            password = password.trim();
         } catch (error) {
-            return res.status(400).json({ error: error });
+            return res.status(400).json({ error: 'Invalid email or password' });
         }
         
         // Call the login function from userData

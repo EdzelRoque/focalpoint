@@ -27,6 +27,8 @@ const statOverrides = document.getElementById('stat-overrides');
 const endError = document.getElementById('end-error');
 const endSessionBtn = document.getElementById('end-btn');
 
+let elapsedInterval = null; // To track the elapsed timer interval
+
 // Helper functions
 const showError = (el, message) => {
     el.textContent = message;
@@ -101,7 +103,7 @@ const init = async () => {
 
     if (storage.activeSession) {
         // Logged in and session is running
-        loadActiveView(storage.activeSession);
+        loadActiveSession(storage.activeSession);
         return;
     }
 
@@ -128,7 +130,7 @@ loginForm.addEventListener("submit", async (event) => {
     if (!email || !password) {
         showError(loginError, "Please fill in all fields.");
         return;
-    } 
+    }
 
     // Send login request to backend
     try {
@@ -140,7 +142,7 @@ loginForm.addEventListener("submit", async (event) => {
         const data = await res.json();
 
         if (!res.ok) {
-            showError(loginError, data.message || "Login failed. Please try again.");
+            showError(loginError, data.error || "Login failed. Please try again.");
             return;
         }
 
@@ -191,22 +193,23 @@ sessionForm.addEventListener("submit", async (event) => {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({ sessionGoal: goal, duration: duration ? parseInt(duration) : null })
+            body: JSON.stringify({ sessionGoal: goal, durationInMinutes: duration ? parseInt(duration) : null })
         });
         const data = await res.json();
 
         if (!res.ok) {
-            showError(startError, data.message || "Failed to start session. Please try again.");
+            showError(startError, data.error || "Failed to start session. Please try again.");
             return;
         }
 
         // Store session in chrome.storage so background.js can access it
-        await chrome.storage.local.set({ activeSession: data.session });
+        await chrome.storage.local.set({ activeSession: data });
 
         // Tell the background service worker a session has started
-        chrome.runtime.sendMessage({ type: "SESSION_STARTED", session: data.session });
+        // chrome.runtime.sendMessage({ type: "SESSION_STARTED", session: data });
 
-        loadActiveSession(data.session);
+        logoutBtn.style.display = 'none';
+        loadActiveSession(data);
     } catch (err) {
         showError(startError, "An error occurred. Please try again.");
     }
@@ -222,14 +225,14 @@ endSessionBtn.addEventListener("click", async () => {
     try {
         const { token, activeSession } = await chrome.storage.local.get(["token", "activeSession"]);
 
-        const res = await fetch(`${BASE_URL}/api/sessions/${activeSession.id}/end`, {
+        const res = await fetch(`${BASE_URL}/api/sessions/${activeSession._id}`, {
             method: 'PUT',
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
 
         if (!res.ok) {
-            showError(endError, data.message || "Failed to end session. Please try again.");
+            showError(endError, data.error || "Failed to end session. Please try again.");
             return;
         }
 
@@ -237,7 +240,7 @@ endSessionBtn.addEventListener("click", async () => {
         await chrome.storage.local.set({ sessionResult: data.result, activeSession: null });
 
         // Tell the background service worker a session has ended
-        chrome.runtime.sendMessage({ type: "SESSION_ENDED", result: data.result });
+        // chrome.runtime.sendMessage({ type: "SESSION_ENDED", result: data.result });
 
         stopElapsedTimer();
         showView(viewStart);

@@ -1,10 +1,12 @@
 import 'dotenv/config';
 import express from 'express';
+import cors from 'cors';
 import configRoutes from './routes/index.js';
 
 const app = express();
 
-app.use(express.json()); // allows us to get JSON data
+app.use(cors()); // Enable CORS for all routes - adjust as needed for production
+app.use(express.json()); // allows us to get and read JSON data
 
 configRoutes(app);
 

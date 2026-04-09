@@ -49,7 +49,8 @@ export const login = async (email, password) => {
 
     // Validate email and password
     email = validateEmail(email);
-    password = validatePassword(password);
+    if (!password || typeof password !== 'string' || password.trim().length === 0) throw 'Invalid email or password';
+    password = password.trim();
 
     // Find the user by email
     const user = await userCollection.findOne({ email: email.toLowerCase() });
