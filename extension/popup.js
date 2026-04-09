@@ -208,7 +208,6 @@ sessionForm.addEventListener("submit", async (event) => {
         // Tell the background service worker a session has started
         // chrome.runtime.sendMessage({ type: "SESSION_STARTED", session: data });
 
-        logoutBtn.style.display = 'none';
         loadActiveSession(data);
     } catch (err) {
         showError(startError, "An error occurred. Please try again.");
@@ -237,10 +236,11 @@ endSessionBtn.addEventListener("click", async () => {
         }
 
         // Store session result in chrome.storage so background.js can access it
-        await chrome.storage.local.set({ sessionResult: data.result, activeSession: null });
+        await chrome.storage.local.set({ lastSession: data });
+        await chrome.storage.local.remove("activeSession");
 
         // Tell the background service worker a session has ended
-        // chrome.runtime.sendMessage({ type: "SESSION_ENDED", result: data.result });
+        // chrome.runtime.sendMessage({ type: "SESSION_ENDED", result: data });
 
         stopElapsedTimer();
         showView(viewStart);
@@ -253,6 +253,20 @@ endSessionBtn.addEventListener("click", async () => {
 // Logout logic
 logoutBtn.addEventListener("click", async () => {
     stopElapsedTimer();
+
+    // If there's an active session, end it before logging out
+    const { token, activeSession } = await chrome.storage.local.get(["token", "activeSession"]);
+    if (activeSession && token) {
+        try {
+            await fetch(`${BASE_URL}/api/sessions/${activeSession._id}`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+        } catch (err) {
+            // Silent fail — we're logging out regardless
+        }
+    }
+    
     await chrome.storage.local.clear();
     logoutBtn.style.display = 'none';
     showView(viewLogin);

@@ -1,4 +1,4 @@
-import Router from 'express';
+import { Router } from 'express';
 import { sessionData } from '../data/index.js';
 import authMiddleware from '../middleware/auth.js';
 import {
