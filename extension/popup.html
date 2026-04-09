@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FocalPoint</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+
+    <!-- ── Header ── -->
+    <div class="header">
+        <div class="logo">
+            <div class="logo-dot"></div>
+            <span class="logo-text">FocalPoint</span>
+        </div>
+        <button class="logout-btn" id="logout-btn" style="display:none;">Sign out</button>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         VIEW 1: Login
+    ══════════════════════════════════════════ -->
+    <div id="view-login" class="view">
+        <div class="view-intro">
+            <p class="view-title">Welcome back</p>
+            <p class="view-sub">Sign in to start a focus session</p>
+        </div>
+
+        <form name="login-form" id="login-form">
+            <div class="form-group">
+                <label for="login-email">Email</label>
+                <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email" />
+            </div>
+
+            <div class="form-group">
+                <label for="login-password">Password</label>
+                <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" />
+            </div>
+
+            <div id="login-error" class="error-msg" style="display:none;"></div>
+
+            <button class="btn-primary" id="login-btn">Sign in</button>
+        </form>
+
+        <p class="auth-switch">
+            No account?
+            <a href="#" id="open-register">Create one →</a>
+        </p>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         VIEW 2: Start Session (logged in, no active session)
+    ══════════════════════════════════════════ -->
+    <div id="view-start" class="view" style="display:none;">
+        <div class="view-intro">
+            <p class="view-title">Ready to focus?</p>
+            <p class="view-sub" id="welcome-name">What are you working on today?</p>
+        </div>
+
+        <form name="session-form" id="session-form">
+            <div class="form-group">
+                <label for="session-goal">Your goal</label>
+                <textarea
+                    id="session-goal"
+                    placeholder="e.g. Studying for my machine learning exam"
+                    rows="3"
+                ></textarea>
+                <span class="field-hint">Be specific — the AI uses this to judge every page you visit</span>
+            </div>
+
+            <div class="form-group">
+                <label for="session-duration">
+                    Duration
+                    <span class="label-optional">optional</span>
+                </label>
+                <div class="duration-row">
+                    <input type="number" id="session-duration" placeholder="60" min="1" max="480" />
+                    <span class="duration-unit">minutes</span>
+                </div>
+            </div>
+
+            <div id="start-error" class="error-msg" style="display:none;"></div>
+
+            <button class="btn-primary" id="start-btn">
+                <span class="btn-dot active"></span>
+                Start session
+            </button>
+        </form>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         VIEW 3: Active Session
+    ══════════════════════════════════════════ -->
+    <div id="view-active" class="view" style="display:none;">
+
+        <div class="session-status">
+            <span class="status-pill">
+                <span class="pulse-dot"></span>
+                Active
+            </span>
+        </div>
+
+        <div class="goal-card">
+            <span class="goal-label">Current goal</span>
+            <p class="goal-text" id="active-goal-text">—</p>
+        </div>
+
+        <div class="timer-display" id="timer-display">00:00</div>
+        <p class="timer-label">elapsed</p>
+
+        <div class="stats-row">
+            <div class="stat-box">
+                <span class="stat-num" id="stat-blocks">0</span>
+                <span class="stat-label">blocked</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-box">
+                <span class="stat-num" id="stat-overrides">0</span>
+                <span class="stat-label">overrides</span>
+            </div>
+        </div>
+
+        <div id="end-error" class="error-msg" style="display:none;"></div>
+
+        <button class="btn-end" id="end-btn">End session</button>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

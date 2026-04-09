@@ -1,0 +1,370 @@
+/* ── Reset & Base ────────────────────────────────────── */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    width: 320px;
+    min-height: 100px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    background: #0d0f12;
+    color: #e8e9eb;
+    overflow-x: hidden;
+}
+
+/* ── Header ──────────────────────────────────────────── */
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px 12px;
+    border-bottom: 1px solid #1e2129;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.logo-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #6366f1;
+    box-shadow: 0 0 8px #6366f188;
+}
+
+.logo-text {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: #e8e9eb;
+}
+
+.logout-btn {
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: 12px;
+    color: #5a5f6e;
+    cursor: pointer;
+    padding: 2px 0;
+    transition: color 0.15s;
+}
+
+.logout-btn:hover {
+    color: #e8e9eb;
+}
+
+/* ── Views ───────────────────────────────────────────── */
+.view {
+    padding: 18px 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.view-intro {
+    margin-bottom: 2px;
+}
+
+.view-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #e8e9eb;
+    margin-bottom: 3px;
+}
+
+.view-sub {
+    font-size: 12px;
+    color: #5a5f6e;
+    line-height: 1.5;
+}
+
+/* ── Form Elements ───────────────────────────────────── */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #9095a3;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.label-optional {
+    font-size: 10px;
+    font-weight: 400;
+    color: #3d4150;
+    background: #1a1d27;
+    padding: 1px 6px;
+    border-radius: 4px;
+}
+
+input[type="email"],
+input[type="password"],
+input[type="number"],
+textarea {
+    width: 100%;
+    background: #13151e;
+    border: 1px solid #1e2129;
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: #e8e9eb;
+    outline: none;
+    transition: border-color 0.15s;
+    resize: none;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: #2e3340;
+}
+
+input:focus,
+textarea:focus {
+    border-color: #6366f1;
+}
+
+.duration-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.duration-row input {
+    width: 80px;
+}
+
+.duration-unit {
+    font-size: 12px;
+    color: #5a5f6e;
+}
+
+.field-hint {
+    font-size: 11px;
+    color: #3d4150;
+    line-height: 1.4;
+}
+
+/* ── Buttons ─────────────────────────────────────────── */
+.btn-primary {
+    width: 100%;
+    padding: 10px;
+    background: #6366f1;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background 0.15s, opacity 0.15s;
+    margin-top: 2px;
+}
+
+.btn-primary:hover {
+    background: #4f52d4;
+}
+
+.btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #a5b4fc;
+}
+
+.btn-end {
+    width: 100%;
+    padding: 10px;
+    background: #13151e;
+    color: #e8698a;
+    border: 1px solid #2a1e24;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    margin-top: 4px;
+}
+
+.btn-end:hover {
+    background: #1a1219;
+    border-color: #e8698a44;
+}
+
+/* ── Auth Switch ─────────────────────────────────────── */
+.auth-switch {
+    text-align: center;
+    font-size: 12px;
+    color: #3d4150;
+}
+
+.auth-switch a {
+    color: #6366f1;
+    text-decoration: none;
+    margin-left: 4px;
+    transition: color 0.15s;
+}
+
+.auth-switch a:hover {
+    color: #a5b4fc;
+}
+
+/* ── Error Message ───────────────────────────────────── */
+.error-msg {
+    font-size: 12px;
+    color: #e8698a;
+    background: #1a0f13;
+    border: 1px solid #2a1520;
+    border-radius: 6px;
+    padding: 8px 10px;
+    line-height: 1.4;
+}
+
+/* ── Active Session View ─────────────────────────────── */
+.session-status {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 2px;
+}
+
+.status-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #0f1a14;
+    border: 1px solid #1a3024;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #4ade80;
+}
+
+/* Pulsing green dot */
+.pulse-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #4ade80;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+/* Goal card */
+.goal-card {
+    background: #13151e;
+    border: 1px solid #1e2129;
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.goal-label {
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #3d4150;
+}
+
+.goal-text {
+    font-size: 13px;
+    color: #c4c6cc;
+    line-height: 1.5;
+}
+
+/* Timer display */
+.timer-display {
+    text-align: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 38px;
+    font-weight: 500;
+    color: #e8e9eb;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    margin: 4px 0 0;
+}
+
+.timer-label {
+    text-align: center;
+    font-size: 11px;
+    color: #3d4150;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 4px;
+}
+
+/* Stats row */
+.stats-row {
+    display: flex;
+    align-items: center;
+    background: #13151e;
+    border: 1px solid #1e2129;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.stat-box {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 10px 0;
+}
+
+.stat-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 20px;
+    font-weight: 500;
+    color: #e8e9eb;
+}
+
+.stat-label {
+    font-size: 10px;
+    color: #3d4150;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.stat-divider {
+    width: 1px;
+    height: 32px;
+    background: #1e2129;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+}
