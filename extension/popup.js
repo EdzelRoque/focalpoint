@@ -206,7 +206,7 @@ sessionForm.addEventListener("submit", async (event) => {
         await chrome.storage.local.set({ activeSession: data });
 
         // Tell the background service worker a session has started
-        // chrome.runtime.sendMessage({ type: "SESSION_STARTED", session: data });
+        chrome.runtime.sendMessage({ type: "SESSION_STARTED", session: data });
 
         loadActiveSession(data);
     } catch (err) {
@@ -240,7 +240,7 @@ endSessionBtn.addEventListener("click", async () => {
         await chrome.storage.local.remove("activeSession");
 
         // Tell the background service worker a session has ended
-        // chrome.runtime.sendMessage({ type: "SESSION_ENDED", result: data });
+        chrome.runtime.sendMessage({ type: "SESSION_ENDED", result: data });
 
         stopElapsedTimer();
         showView(viewStart);
@@ -266,14 +266,14 @@ logoutBtn.addEventListener("click", async () => {
             // Silent fail — we're logging out regardless
         }
     }
-    
+
     await chrome.storage.local.clear();
     logoutBtn.style.display = 'none';
     showView(viewLogin);
 });
 
 
-// Listen for stat updates from background
+// Listen for stat updates from background -- this will be for changes in blocked/overridden counts while session is active
 chrome.runtime.onMessage.addListener((message) => {
     if (message.action === "stats_update") {
         statBlocks.textContent = message.stats.blockedCount || 0;

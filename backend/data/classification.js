@@ -64,7 +64,7 @@ export const classify = async (url, pageTitle, pageSnippet, sessionGoal) => {
 
     // Cache miss, proceed to classify the text
     const decision = await callClaude(url, pageTitle, pageSnippet, sessionGoal);
-
     await redis.set(cacheKey, JSON.stringify(decision), 'EX', 86400); // Cache for 24 hours
+    
     return decision;
 };
