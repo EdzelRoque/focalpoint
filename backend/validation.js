@@ -69,4 +69,25 @@ const validateSessionGoal = (sessionGoal) => {
     return sessionGoal;
 };
 
-export { validateUsername, validateEmail, validatePassword, validateId, validateTimeDuration, validateSessionGoal };
+const validateURL = (url) => {
+    url = validateString(url, 'URL');
+    const urlRegex = /^(https?:\/\/)?([\w-]+(\.[\w-]+)+)(\/[\w-]*)*\/?$/;
+    if (!urlRegex.test(url)) throw 'Invalid URL format';
+    return url;
+};
+
+const validatePageTitle = (title) => {
+    title = validateString(title, 'Page Title');
+    if (title.length < 2) throw 'Page title must be at least 2 characters long';
+    return title;
+};
+
+const validatePageSnippet = (snippet) => {
+    snippet = validateString(snippet, 'Page Snippet');
+    if (snippet.length < 5) throw 'Page snippet must be at least 5 characters long';
+    return snippet;
+};
+
+
+
+export { validateUsername, validateEmail, validatePassword, validateId, validateTimeDuration, validateSessionGoal, validateURL, validatePageTitle, validatePageSnippet };
