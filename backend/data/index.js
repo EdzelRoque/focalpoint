@@ -1,5 +1,5 @@
 import { register, login } from './user.js';
-import { createSession, endSession, getSessionsByUserId, getSessionById } from './session.js';
+import { createSession, endSession, getSessionsByUserId, getSessionById, incrementBlockedCount, incrementOverrideCount } from './session.js';
 import { classify } from './classification.js';
 
 export const userData = {
@@ -15,5 +15,7 @@ export const sessionData = {
     createSession,
     endSession,
     getSessionsByUserId,
-    getSessionById
+    getSessionById,
+    incrementBlockedCount,
+    incrementOverrideCount
 };

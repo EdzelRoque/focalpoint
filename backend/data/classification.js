@@ -9,24 +9,26 @@ const callClaude = async (url, pageTitle, pageSnippet, sessionGoal) => {
     });
 
     const response = await client.messages.create({
-      model: 'claude-opus-4-5',
+      model: 'claude-3-haiku-20240307',
       max_tokens: 100,
-      system: `You are a focus assistant that decides whether a webpage is relevant to a user's stated goal. 
-      You must respond with ONLY a JSON object in this exact format, nothing else: 
-      {"decision": "ALLOW", "reason": "one sentence explanation"} 
-      or 
-      {"decision": "BLOCK", "reason": "one sentence explanation"}. 
-      Do not include any other text, markdown, or explanation outside the JSON object.`,
+      system: `You are a focus assistant that decides whether a webpage is relevant to a user's stated goal.
+    You must respond with ONLY a JSON object in this exact format, nothing else:
+    {"decision": "ALLOW", "reason": "one sentence explanation"}
+    or
+    {"decision": "BLOCK", "reason": "one sentence explanation"}
+    Do not include any other text, markdown, or explanation outside the JSON object.`,
       messages: [
-        { 
-            role: 'user', 
-            content: `User's goal: ${sessionGoal}
-            Page URL: ${url}
-            Page Title: ${pageTitle}
-            Page Snippet: ${pageSnippet}
-            Is this page relevant to the user's goal?`
+        {
+          role: 'user',
+          content: `User's goal: ${sessionGoal}
+
+    Page URL: ${url}
+    Page title: ${pageTitle}
+    Page content snippet: ${pageSnippet}
+
+    Is this page relevant to the user's goal?`,
         },
-      ]
+      ],
     });
 
     // Extract the text from Claude's response

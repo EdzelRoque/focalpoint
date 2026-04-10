@@ -110,4 +110,37 @@ export const getSessionsByUserId = async (userId) => {
 
     return userSessions;
 };
- 
+
+export const incrementBlockedCount = async (sessionId) => {
+    // Get the sessions collection
+    const sessionCollection = await sessions();
+
+    // Validate sessionId
+    sessionId = validateId(sessionId);
+
+    // Increment the blockedCount for the session
+    const updateInfo = await sessionCollection.updateOne(
+        { _id: new ObjectId(sessionId) },
+        { $inc: { blockedCount: 1 } }
+    );
+    if (!updateInfo.acknowledged) throw 'Could not increment blocked count';
+
+    return await getSessionById(sessionId);
+};
+
+export const incrementOverrideCount = async (sessionId) => {
+    // Get the sessions collection
+    const sessionCollection = await sessions();
+
+    // Validate sessionId
+    sessionId = validateId(sessionId);
+
+    // Increment the overriddenCount for the session
+    const updateInfo = await sessionCollection.updateOne(
+        { _id: new ObjectId(sessionId) },
+        { $inc: { overriddenCount: 1 } }
+    );
+    if (!updateInfo.acknowledged) throw 'Could not increment overridden count';
+    
+    return await getSessionById(sessionId);
+};

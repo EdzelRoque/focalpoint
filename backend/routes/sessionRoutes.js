@@ -103,4 +103,50 @@ router.route('/sessions/:id')
         }
     });
 
+router.route('/sessions/:id/block')
+    .post(authMiddleware, async (req, res) => {
+        // Get sessionId from the URL parameters
+        let userId = req.user.userId;
+        let sessionId = req.params.id;
+
+        // Validate userId and sessionId
+        try {
+            userId = validateId(userId);
+            sessionId = validateId(sessionId);
+        } catch (error) {
+            return res.status(400).json({ error: error });
+        }
+
+        // Call the incrementBlockedCount function from sessionData
+        try {
+            const updatedSession = await sessionData.incrementBlockedCount(sessionId);
+            return res.json(updatedSession);
+        } catch (error) {
+            return res.status(500).json({ error: error });
+        }
+    });
+
+router.route('/sessions/:id/override')
+    .post(authMiddleware, async (req, res) => {
+        // Get sessionId from the URL parameters
+        let userId = req.user.userId;
+        let sessionId = req.params.id;
+
+        // Validate userId and sessionId
+        try {
+            userId = validateId(userId);
+            sessionId = validateId(sessionId);
+        } catch (error) {
+            return res.status(400).json({ error: error });
+        }
+
+        // Call the incrementOverrideCount function from sessionData
+        try {
+            const updatedSession = await sessionData.incrementOverrideCount(sessionId);
+            return res.json(updatedSession);
+        } catch (error) {
+            return res.status(500).json({ error: error });
+        }
+    });
+
 export default router;
