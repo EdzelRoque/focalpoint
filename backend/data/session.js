@@ -31,8 +31,8 @@ export const createSession = async (userId, sessionGoal, durationInMinutes=null)
         expectedEndTime: expectedEndTime,
         actualEndTime: null,
         isActive: true,
-        blockedCount: 0,
-        overriddenCount: 0
+        blockCount: 0,
+        overrideCount: 0
     };
 
     // Insert the new session into the database
@@ -73,7 +73,9 @@ export const endSession = async (sessionId) => {
         startTime: session.startTime,
         expectedEndTime: session.expectedEndTime,
         actualEndTime: actualEndTime,
-        isActive: false
+        isActive: false,
+        blockCount: session.blockCount,
+        overrideCount: session.overrideCount
     };
 
 };
@@ -111,21 +113,21 @@ export const getSessionsByUserId = async (userId) => {
     return userSessions;
 };
 
-export const incrementBlockedCount = async (sessionId) => {
+export const incrementBlockCount = async (sessionId) => {
     // Get the sessions collection
     const sessionCollection = await sessions();
 
     // Validate sessionId
     sessionId = validateId(sessionId);
 
-    // Increment the blockedCount for the session
+    // Increment the blockCount for the session
     const updateInfo = await sessionCollection.updateOne(
         { _id: new ObjectId(sessionId) },
-        { $inc: { blockedCount: 1 } }
+        { $inc: { blockCount: 1 } }
     );
-    if (!updateInfo.acknowledged) throw 'Could not increment blocked count';
+    if (!updateInfo.acknowledged) throw 'Could not increment block count';
 
-    return await getSessionById(sessionId);
+    return { success: true };
 };
 
 export const incrementOverrideCount = async (sessionId) => {
@@ -135,12 +137,12 @@ export const incrementOverrideCount = async (sessionId) => {
     // Validate sessionId
     sessionId = validateId(sessionId);
 
-    // Increment the overriddenCount for the session
+    // Increment the overrideCount for the session
     const updateInfo = await sessionCollection.updateOne(
         { _id: new ObjectId(sessionId) },
-        { $inc: { overriddenCount: 1 } }
+        { $inc: { overrideCount: 1 } }
     );
-    if (!updateInfo.acknowledged) throw 'Could not increment overridden count';
+    if (!updateInfo.acknowledged) throw 'Could not increment override count';
     
-    return await getSessionById(sessionId);
+    return { success: true };
 };

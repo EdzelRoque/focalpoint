@@ -21,17 +21,17 @@ init();
 
 // Add event listeners for messages from popup.js or content.js
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.type === "SESSION_STARTED") {
+    if (message.action === "SESSION_STARTED") {
         activeSession = message.session;
         sendResponse({ status: "Session saved in background" });
     }
 
-    if (message.type === "SESSION_ENDED") {
+    if (message.action === "SESSION_ENDED") {
         activeSession = null;
         sendResponse({ status: "Session cleared in background" });
     }
 
-    if (message.type === "CLASSIFY_PAGE") {
+    if (message.action === "CLASSIFY_PAGE") {
         if (!activeSession) {
             sendResponse({ error: "No active session" });
             return;
@@ -86,13 +86,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
-                    // Update the background memory state
-                    activeSession.blockedCount += 1;
+                    activeSession.blockCount += 1;
+                    await chrome.storage.local.set({ activeSession }); // Persist the updated session state
 
                     // Send a message to popup to update the UI stats
                     chrome.runtime.sendMessage({ 
                         action: "stats_update",
-                        stats: { blockedCount: activeSession.blockedCount, overrideCount: activeSession.overrideCount }
+                        stats: { 
+                            blockCount: activeSession.blockCount, 
+                            overrideCount: activeSession.overrideCount 
+                        }
                     });
                 }
                 
@@ -105,6 +108,49 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         // Execute the async function
         processClassification();
+    }
+
+    if (message.action === "OVERRIDE_PAGE") {
+        // Necessary for background.js
+        if (!activeSession) {
+            sendResponse({ error: "No active session" });
+            return;
+        }
+
+        // Call the backend override API to log the override action
+        const processOverride = async () => {
+            try {
+                // Load token from storage to authenticate the request
+                const { token } = await chrome.storage.local.get("token");
+                // Necessary for background.js
+                if (!token) {
+                    sendResponse({ error: "Not authenticated" });
+                    return;
+                }
+
+                await fetch(`${BASE_URL}/api/sessions/${activeSession._id}/override`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                activeSession.overrideCount += 1;
+                await chrome.storage.local.set({ activeSession }); // Persist the updated session state
+
+                // Send a message to popup to update the UI stats
+                chrome.runtime.sendMessage({ 
+                    action: "stats_update",
+                    stats: { 
+                        blockCount: activeSession.blockCount, 
+                        overrideCount: activeSession.overrideCount 
+                    }
+                });
+
+                sendResponse({ status: "Override logged" });
+            } catch (error) {
+                sendResponse({ error: error });
+            }
+        }
+        // Execute the async function
+        processOverride();
     }
 
     // Synchronously return true to keep the message channel open

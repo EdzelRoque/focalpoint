@@ -117,9 +117,9 @@ router.route('/sessions/:id/block')
             return res.status(400).json({ error: error });
         }
 
-        // Call the incrementBlockedCount function from sessionData
+        // Call the incrementBlockCount function from sessionData
         try {
-            const updatedSession = await sessionData.incrementBlockedCount(sessionId);
+            const updatedSession = await sessionData.incrementBlockCount(sessionId);
             return res.json(updatedSession);
         } catch (error) {
             return res.status(500).json({ error: error });

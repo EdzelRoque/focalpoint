@@ -86,9 +86,10 @@ const stopElapsedTimer = () => {
 // Load active session view
 const loadActiveSession = (session) => {
     activeGoal.textContent = session.sessionGoal;
-    statBlocks.textContent = session.blockedCount || 0;
-    statOverrides.textContent = session.overriddenCount || 0;
+    statBlocks.textContent = session.blockCount || 0;
+    statOverrides.textContent = session.overrideCount || 0;
     startElapsedTimer(new Date(session.startTime).getTime());
+    logoutBtn.style.display = 'block';
     showView(viewActive);
 };
 
@@ -206,7 +207,7 @@ sessionForm.addEventListener("submit", async (event) => {
         await chrome.storage.local.set({ activeSession: data });
 
         // Tell the background service worker a session has started
-        chrome.runtime.sendMessage({ type: "SESSION_STARTED", session: data });
+        chrome.runtime.sendMessage({ action: "SESSION_STARTED", session: data });
 
         loadActiveSession(data);
     } catch (err) {
@@ -236,11 +237,10 @@ endSessionBtn.addEventListener("click", async () => {
         }
 
         // Store session result in chrome.storage so background.js can access it
-        await chrome.storage.local.set({ lastSession: data });
         await chrome.storage.local.remove("activeSession");
 
         // Tell the background service worker a session has ended
-        chrome.runtime.sendMessage({ type: "SESSION_ENDED", result: data });
+        chrome.runtime.sendMessage({ action: "SESSION_ENDED", session: data });
 
         stopElapsedTimer();
         showView(viewStart);
@@ -273,10 +273,10 @@ logoutBtn.addEventListener("click", async () => {
 });
 
 
-// Listen for stat updates from background -- this will be for changes in blocked/overridden counts while session is active
+// Listen for stat updates from background -- this will be for changes in block/override counts while session is active
 chrome.runtime.onMessage.addListener((message) => {
     if (message.action === "stats_update") {
-        statBlocks.textContent = message.stats.blockedCount || 0;
-        statOverrides.textContent = message.stats.overriddenCount || 0;
+        statBlocks.textContent = message.stats.blockCount || 0;
+        statOverrides.textContent = message.stats.overrideCount || 0;
     }
 });
