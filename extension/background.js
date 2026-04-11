@@ -42,7 +42,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const url = payload.url;
         const pageTitle = payload.pageTitle;
         const pageSnippet = payload.pageSnippet;
-        const sessionGoal = payload.sessionGoal;
+        const sessionGoal = activeSession.sessionGoal; // Get the session goal from the active session
 
         // Validate the payload
         if (!url || !pageTitle || !pageSnippet || !sessionGoal) {

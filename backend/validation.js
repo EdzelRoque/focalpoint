@@ -71,9 +71,20 @@ const validateSessionGoal = (sessionGoal) => {
 
 const validateURL = (url) => {
     url = validateString(url, 'URL');
-    const urlRegex = /^(https?:\/\/)?([\w-]+(\.[\w-]+)+)(\/[\w-]*)*\/?$/;
-    if (!urlRegex.test(url)) throw 'Invalid URL format';
-    return url;
+    
+    try {
+        // The URL constructor automatically throws an error if the string is not a valid web address
+        const parsedUrl = new URL(url);
+        
+        // Ensure it is an actual web page and not a local file or custom protocol
+        if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+            throw 'Invalid URL format';
+        }
+        
+        return parsedUrl.href;
+    } catch (error) {
+        throw 'Invalid URL format';
+    }
 };
 
 const validatePageTitle = (title) => {

@@ -8,42 +8,46 @@ const callClaude = async (url, pageTitle, pageSnippet, sessionGoal) => {
         apiKey: process.env.ANTHROPIC_API_KEY
     });
 
-    const response = await client.messages.create({
-      model: 'claude-3-haiku-20240307',
-      max_tokens: 100,
-      system: `You are a focus assistant that decides whether a webpage is relevant to a user's stated goal.
-    You must respond with ONLY a JSON object in this exact format, nothing else:
-    {"decision": "ALLOW", "reason": "one sentence explanation"}
-    or
-    {"decision": "BLOCK", "reason": "one sentence explanation"}
-    Do not include any other text, markdown, or explanation outside the JSON object.`,
-      messages: [
-        {
-          role: 'user',
-          content: `User's goal: ${sessionGoal}
-
-    Page URL: ${url}
-    Page title: ${pageTitle}
-    Page content snippet: ${pageSnippet}
-
-    Is this page relevant to the user's goal?`,
-        },
-      ],
-    });
-
-    // Extract the text from Claude's response
-    const text = response.content[0].text.trim();
-
-    // Parse the JSON response
     try {
-        const parsed = JSON.parse(text);
-        if (!parsed.decision || !['ALLOW', 'BLOCK'].includes(parsed.decision)) {
-            throw 'Invalid decision format';
-        }
-        return parsed;
+      const response = await client.messages.create({
+        model: 'claude-haiku-4-5',
+        max_tokens: 100,
+        system: `You are a focus assistant that decides whether a webpage is relevant to a user's stated goal.
+        
+        CRITICAL RULES:
+        1. If the page contains content explicitly relevant to the goal, respond with ALLOW.
+        2. If the page is a neutral gateway, search engine, or platform homepage (like google.com or the youtube.com homepage) that the user must navigate through to search for their target content, respond with ALLOW.
+        3. If the page is explicitly distracting, off-topic, or irrelevant entertainment, respond with BLOCK.
+        
+        You must respond with ONLY a JSON object in this exact format, nothing else:
+        {"decision": "ALLOW", "reason": "one sentence explanation"}
+        or
+        {"decision": "BLOCK", "reason": "one sentence explanation"}
+        
+        Do not include any other text, markdown, or explanation outside the JSON object.`,
+        messages: [
+          {
+            role: 'user',
+            content: `User's goal: ${sessionGoal}\n\nPage URL: ${url}\nPage title: ${pageTitle}\nPage content snippet: ${pageSnippet}\n\nIs this page relevant to the user's goal?`
+          },
+        ],
+      });
+
+      // Extract the text from Claude's response
+      let text = response.content[0].text.trim();
+      text = text.replace(/```json/gi, '').replace(/```/g, ''); // Remove any code block formatting if present
+      
+      // Parse the JSON response
+      const parsed = JSON.parse(text);
+      console.log('Claude response:', parsed);
+
+      if (!parsed.decision || !['ALLOW', 'BLOCK'].includes(parsed.decision)) {
+        throw 'Invalid decision format';
+      }
+      return parsed;
     } catch (error) {
+        console.error('Classification API Error:', error);
         // If Claude returns something unexpected, default to ALLOW
-        // so we never incorrectly block a legimate page
         return { decision: 'ALLOW', reason: 'Classification error -- defaulting to allow' };
     }
     
