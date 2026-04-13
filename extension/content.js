@@ -175,6 +175,15 @@ const classify_page = async () => {
 // Init() will run as soon as the content script loads onto the page
 const init = async () => {
   try {
+    // YouTube-specific setup
+    if (window.location.hostname.includes('youtube.com')) {
+      document.addEventListener('yt-page-data-updated', () => {
+        const existing = document.getElementById('focalpoint-overlay');
+        if (existing) existing.remove();
+        classify_page();
+      });
+    }
+
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', classify_page);
     } else {
