@@ -3,19 +3,7 @@ let currentClassificationId = 0;
 let lastClassifiedTitle = null;
 let lastClassifiedSnippet = null;
 
-// YouTube-specific native navigation handler
-if (window.location.hostname.includes('youtube.com')) {
-  // This event fires exactly when the new video's text data has fully populated the DOM
-  document.addEventListener('yt-page-data-updated', () => {
-    const existing = document.getElementById('focalpoint-overlay');
-    if (existing) existing.remove();
-
-    // The DOM is now guaranteed to match the URL, no timeouts needed
-    classify_page();
-  });
-}
-
-// Get a snippet of visible text from the page
+// Helper function to extract a snippet of text from the page
 const getPageSnippet = () => {
     // Main content text as the first option
     const mainContent = document.querySelector(
@@ -48,7 +36,7 @@ const getPageSnippet = () => {
     return document.title;
 };
 
-// Inject the soft block overlay
+// Helper function to inject the block overlay with a reason
 const injectBlockOverlay = (reason) => {
   // Don't inject if one already exists
   if (document.getElementById('focalpoint-overlay')) return;
@@ -136,7 +124,7 @@ const injectBlockOverlay = (reason) => {
   });
 };
 
-// Classify the current page
+// Helper function to call the background script, which calls the Claude API
 const classify_page = async () => {
   const url = window.location.href;
   const pageTitle = document.title;
@@ -184,8 +172,7 @@ const classify_page = async () => {
   }
 };
 
-// Run classification when content script first loads on a fresh page
-// Use document.readyState to ensure the HTML is parsed before we scrape
+// Init() will run as soon as the content script loads onto the page
 const init = async () => {
   try {
     if (document.readyState === 'loading') {
@@ -201,7 +188,7 @@ const init = async () => {
 
 init();
 
-// Listen for tab_change or spa_change from background (tab switch or SPA navigation, respectively.)
+// Listeners -- this is for messages from background.js to trigger classification on a tab change or SPA navigation
 chrome.runtime.onMessage.addListener((message) => {
   if (message.action === 'tab_change') {
     const existing = document.getElementById('focalpoint-overlay');
@@ -218,7 +205,6 @@ chrome.runtime.onMessage.addListener((message) => {
     // If we are on YouTube, do nothing. Let the yt-navigate-finish event handle it.
     if (window.location.hostname.includes('youtube.com')) return;
 
-    // For SPAs, we need to wait a moment for the new content to load before classifying
     const existing = document.getElementById('focalpoint-overlay');
     if (existing) existing.remove();
 
