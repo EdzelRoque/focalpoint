@@ -3,10 +3,21 @@ let currentClassificationId = 0;
 let lastClassifiedTitle = null;
 let lastClassifiedSnippet = null;
 
+// YouTube-specific native navigation handler
+if (window.location.hostname.includes('youtube.com')) {
+  // This event fires exactly when the new video's text data has fully populated the DOM
+  document.addEventListener('yt-page-data-updated', () => {
+    const existing = document.getElementById('focalpoint-overlay');
+    if (existing) existing.remove();
+
+    // The DOM is now guaranteed to match the URL, no timeouts needed
+    classify_page();
+  });
+}
+
 // Get a snippet of visible text from the page
 const getPageSnippet = () => {
-    // For SPAs, main content areas are more reliable than meta description
-    // because meta tags often don't update on client-side navigation
+    // Main content text as the first option
     const mainContent = document.querySelector(
         'main, article, [role="main"], #content',
     );
@@ -142,6 +153,9 @@ const classify_page = async () => {
 
   const classificationId = ++currentClassificationId;
 
+  lastClassifiedTitle = pageTitle;
+  lastClassifiedSnippet = pageSnippet;
+
   try {
     const response = await chrome.runtime.sendMessage({
       action: 'classify_page',
@@ -166,7 +180,6 @@ const classify_page = async () => {
       injectBlockOverlay(response.reason);
     }
   } catch (err) {
-    // Extension context may be invalidated — silently fail
     return;
   }
 };
@@ -188,7 +201,7 @@ const init = async () => {
 
 init();
 
-// Listen for CHECK_NOW from background (tab switch or SPA navigation)
+// Listen for tab_change or spa_change from background (tab switch or SPA navigation, respectively.)
 chrome.runtime.onMessage.addListener((message) => {
   if (message.action === 'tab_change') {
     const existing = document.getElementById('focalpoint-overlay');
@@ -202,6 +215,9 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 
   if (message.action === 'spa_change') {
+    // If we are on YouTube, do nothing. Let the yt-navigate-finish event handle it.
+    if (window.location.hostname.includes('youtube.com')) return;
+
     // For SPAs, we need to wait a moment for the new content to load before classifying
     const existing = document.getElementById('focalpoint-overlay');
     if (existing) existing.remove();
@@ -211,7 +227,6 @@ chrome.runtime.onMessage.addListener((message) => {
 
     setTimeout(() => {
       // If the URL changed again during the wait, abort
-      // This prevents classifying an intermediate navigation
       if (window.location.href !== urlAtChangeTime) return;
 
       if (document.readyState === 'loading') {

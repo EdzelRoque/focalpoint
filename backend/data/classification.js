@@ -40,10 +40,6 @@ const callClaude = async (url, pageTitle, pageSnippet, sessionGoal) => {
       // Parse the JSON response
       const parsed = JSON.parse(text);
       console.log('Claude response:', parsed);
-      console.log(url);
-      console.log(pageTitle);
-      console.log(pageSnippet);
-
 
       if (!parsed.decision || !['ALLOW', 'BLOCK'].includes(parsed.decision)) {
         throw 'Invalid decision format';
