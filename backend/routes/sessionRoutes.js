@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import { sessionData } from '../data/index.js';
 import authMiddleware from '../middleware/auth.js';
+import { clearClassificationCache } from '../data/classification.js';
 import {
     validateId,
     validateSessionGoal,
-    validateTimeDuration
+    validateTimeDuration,
+    validateURL
 } from '../validation.js';
 
 const router = Router();
@@ -131,11 +133,16 @@ router.route('/sessions/:id/override')
         // Get sessionId from the URL parameters
         let userId = req.user.userId;
         let sessionId = req.params.id;
+        let sessionInfo = req.body;
+        if (!sessionInfo || Object.keys(sessionInfo).length === 0) return res.status(400).json({ error: 'You must provide session information' });
 
-        // Validate userId and sessionId
+        // Validate userId, sessionId, url, and sessionGoal
+        let { url, sessionGoal } = sessionInfo;
         try {
             userId = validateId(userId);
             sessionId = validateId(sessionId);
+            url = validateURL(url);
+            sessionGoal = validateSessionGoal(sessionGoal);
         } catch (error) {
             return res.status(400).json({ error: error });
         }
@@ -143,6 +150,10 @@ router.route('/sessions/:id/override')
         // Call the incrementOverrideCount function from sessionData
         try {
             const updatedSession = await sessionData.incrementOverrideCount(sessionId);
+
+            // Clear the Redis cache for this URL+goal so next visit will auto allow
+            await clearClassificationCache(url, sessionGoal);
+
             return res.json(updatedSession);
         } catch (error) {
             return res.status(500).json({ error: error });

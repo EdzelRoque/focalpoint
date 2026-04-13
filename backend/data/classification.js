@@ -17,7 +17,7 @@ const callClaude = async (url, pageTitle, pageSnippet, sessionGoal) => {
         CRITICAL RULES:
         1. If the page contains content explicitly relevant to the goal, respond with ALLOW.
         2. If the page is a neutral gateway, search engine, or platform homepage (like google.com or the youtube.com homepage) that the user must navigate through to search for their target content, respond with ALLOW.
-        3. If the page is explicitly distracting, off-topic, or irrelevant entertainment, respond with BLOCK.
+        3. If the page is explicitly distracting, off-topic, or irrelevant, respond with BLOCK.
         
         You must respond with ONLY a JSON object in this exact format, nothing else:
         {"decision": "ALLOW", "reason": "one sentence explanation"}
@@ -40,6 +40,10 @@ const callClaude = async (url, pageTitle, pageSnippet, sessionGoal) => {
       // Parse the JSON response
       const parsed = JSON.parse(text);
       console.log('Claude response:', parsed);
+      console.log(url);
+      console.log(pageTitle);
+      console.log(pageSnippet);
+
 
       if (!parsed.decision || !['ALLOW', 'BLOCK'].includes(parsed.decision)) {
         throw 'Invalid decision format';
@@ -50,8 +54,6 @@ const callClaude = async (url, pageTitle, pageSnippet, sessionGoal) => {
         // If Claude returns something unexpected, default to ALLOW
         return { decision: 'ALLOW', reason: 'Classification error -- defaulting to allow' };
     }
-    
-
 };
 
 export const classify = async (url, pageTitle, pageSnippet, sessionGoal) => {
@@ -64,7 +66,11 @@ export const classify = async (url, pageTitle, pageSnippet, sessionGoal) => {
     // Check Redis cache for existing classification result
     const cacheKey = `classify:${crypto.createHash('md5').update(`${url}:${sessionGoal}`).digest('hex')}`;
     const cached = await redis.get(cacheKey);
-    if (cached) return JSON.parse(cached);
+    if (cached) {
+        const parsed = JSON.parse(cached);
+        console.log('Cached:', parsed);
+        return parsed;
+    }
 
     // Cache miss, proceed to classify the text
     const decision = await callClaude(url, pageTitle, pageSnippet, sessionGoal);
@@ -72,3 +78,14 @@ export const classify = async (url, pageTitle, pageSnippet, sessionGoal) => {
     
     return decision;
 };
+
+
+// Helper function to clear classification cache for a specific URL and session goal (called when user overrides a block)
+export const clearClassificationCache = async (url, sessionGoal) => {
+    const cacheKey = `classify:${crypto.createHash('md5').update(`${url}:${sessionGoal}`).digest('hex')}`;
+    await redis.del(cacheKey);
+
+    // Set the new cache value to ALLOW with reason "User override - cache cleared" so that the user can visit the same site again without getting blocked
+    const newDecision = { decision: 'ALLOW', reason: 'User overrode this page\'s block' };
+    await redis.set(cacheKey, JSON.stringify(newDecision), 'EX', 86400);
+}

@@ -19,25 +19,25 @@ const init = async () => {
 init();
 
 
-// Add event listeners for messages from popup.js or content.js
+// Add event listeners for messages from popup.js or content.js (For classification of new tabs)
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.action === "SESSION_STARTED") {
+    if (message.action === "session_started") {
         activeSession = message.session;
         sendResponse({ status: "Session saved in background" });
     }
 
-    if (message.action === "SESSION_ENDED") {
+    if (message.action === "session_ended") {
         activeSession = null;
         sendResponse({ status: "Session cleared in background" });
     }
 
-    if (message.action === "CLASSIFY_PAGE") {
+    if (message.action === "classify_page") {
         if (!activeSession) {
             sendResponse({ error: "No active session" });
             return;
         }
 
-        // Get the URL, pageTitle, pageSnippet, and sessionGoal from the message payload
+        // Get the URL, pageTitle, and pageSnippet from the message payload
         const payload = message.payload;
         const url = payload.url;
         const pageTitle = payload.pageTitle;
@@ -110,50 +110,94 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         processClassification();
     }
 
-    if (message.action === "OVERRIDE_PAGE") {
+    if (message.action === 'override_page') {
         // Necessary for background.js
         if (!activeSession) {
-            sendResponse({ error: "No active session" });
+            sendResponse({ error: 'No active session' });
             return;
         }
+
+        // Get the URL from the message payload
+        const payload = message.payload;
+        const url = payload.url;
+        const sessionGoal = activeSession.sessionGoal;
 
         // Call the backend override API to log the override action
         const processOverride = async () => {
             try {
                 // Load token from storage to authenticate the request
-                const { token } = await chrome.storage.local.get("token");
+                const { token } = await chrome.storage.local.get('token');
                 // Necessary for background.js
                 if (!token) {
-                    sendResponse({ error: "Not authenticated" });
+                    sendResponse({ error: 'Not authenticated' });
                     return;
                 }
 
-                await fetch(`${BASE_URL}/api/sessions/${activeSession._id}/override`, {
+                await fetch(`${BASE_URL}/api/sessions/${activeSession._id}/override`,{
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        url: url,
+                        sessionGoal: sessionGoal,
+                    })
                 });
+                
                 activeSession.overrideCount += 1;
                 await chrome.storage.local.set({ activeSession }); // Persist the updated session state
 
                 // Send a message to popup to update the UI stats
-                chrome.runtime.sendMessage({ 
-                    action: "stats_update",
-                    stats: { 
-                        blockCount: activeSession.blockCount, 
-                        overrideCount: activeSession.overrideCount 
-                    }
+                chrome.runtime.sendMessage({
+                    action: 'stats_update',
+                    stats: {
+                    blockCount: activeSession.blockCount,
+                    overrideCount: activeSession.overrideCount,
+                    },
                 });
 
-                sendResponse({ status: "Override logged" });
+                sendResponse({ status: 'Override logged' });
             } catch (error) {
                 sendResponse({ error: error });
             }
-        }
+        };
         // Execute the async function
         processOverride();
     }
 
     // Synchronously return true to keep the message channel open
     return true;
+});
+
+
+// The content script already handles classifying new pages, so we have to handle:
+// 1. When the user switches to a different, already-open tab
+// 2. When a URL changes inside the SAME tab (The YouTube SPA fix)
+
+
+// 1. Listen for when the user switches to a different, already-open tab
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+    if (!activeSession) return; // Don't track if no session is active
+
+    try {
+        await chrome.tabs.sendMessage(activeInfo.tabId, { action: "tab_change" });
+    } catch (error) {
+        // Silently fail if the tab is a chrome:// page or hasn't loaded a content script
+    }
+});
+
+// 2. Listen for when a URL changes inside the SAME tab (SPAs)
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (!activeSession) return;
+
+  // SPAs update the URL without changing the document status to 'complete'
+  if (changeInfo.url) {
+    try {
+      await chrome.tabs.sendMessage(tabId, { action: 'spa_change' });
+    } catch (error) {
+      // Silently fail if the content script isn't there
+    }
+  }
 });
 

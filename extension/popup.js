@@ -152,7 +152,6 @@ loginForm.addEventListener("submit", async (event) => {
         showView(viewStart);
     } catch (err) {
         showError(loginError, "An error occurred. Please try again.");
-        console.error("Login error:", err);
     }
 });
 
@@ -207,7 +206,7 @@ sessionForm.addEventListener("submit", async (event) => {
         await chrome.storage.local.set({ activeSession: data });
 
         // Tell the background service worker a session has started
-        chrome.runtime.sendMessage({ action: "SESSION_STARTED", session: data });
+        chrome.runtime.sendMessage({ action: "session_started", session: data });
 
         loadActiveSession(data);
     } catch (err) {
@@ -240,7 +239,7 @@ endSessionBtn.addEventListener("click", async () => {
         await chrome.storage.local.remove("activeSession");
 
         // Tell the background service worker a session has ended
-        chrome.runtime.sendMessage({ action: "SESSION_ENDED", session: data });
+        chrome.runtime.sendMessage({ action: "session_ended", session: data });
 
         stopElapsedTimer();
         showView(viewStart);
