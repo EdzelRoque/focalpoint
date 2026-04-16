@@ -1,16 +1,82 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=DM+Mono:wght@400;500&display=swap');
 
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@theme {
-    --color-fp-bg:      #0d0f12;
-    --color-fp-surface: #13151e;
-    --color-fp-border:  #1e2129;
-    --color-fp-text:    #e8e9eb;
-    --color-fp-muted:   #5a5f6e;
-    --color-fp-faint:   #3d4150;
-    --color-fp-accent:  #6366f1;
+@layer base {
+  :root {
+    /* FocalPoint Dark Theme — primary palette */
+    --background: 225 20% 5%;
+    --foreground: 225 10% 92%;
 
-    --font-family-sans: 'DM Sans', system-ui, sans-serif;
-    --font-family-mono: 'DM Mono', monospace;
+    --card: 228 20% 9%;
+    --card-foreground: 225 10% 92%;
+
+    --popover: 228 20% 9%;
+    --popover-foreground: 225 10% 92%;
+
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 228 15% 12%;
+    --secondary-foreground: 225 10% 92%;
+
+    --muted: 228 15% 12%;
+    --muted-foreground: 225 10% 38%;
+
+    --accent: 228 15% 15%;
+    --accent-foreground: 225 10% 92%;
+
+    --destructive: 346 72% 66%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 69% 58%;
+    --success-foreground: 142 50% 10%;
+
+    --border: 228 15% 15%;
+    --input: 228 15% 15%;
+    --ring: 239 84% 67%;
+
+    --radius: 0.5rem;
+
+    /* Custom tokens */
+    --surface-elevated: 228 20% 7%;
+    --text-tertiary: 225 12% 28%;
+    --primary-glow: 239 84% 67%;
+    --gradient-primary: linear-gradient(135deg, hsl(239 84% 67%), hsl(260 80% 65%));
+    --gradient-hero: linear-gradient(180deg, hsl(228 20% 9%) 0%, hsl(225 20% 5%) 100%);
+    --shadow-glow: 0 0 40px -10px hsl(239 84% 67% / 0.3);
+    --shadow-card: 0 4px 24px -4px hsl(0 0% 0% / 0.4);
+
+    --sidebar-background: 228 20% 7%;
+    --sidebar-foreground: 225 10% 92%;
+    --sidebar-primary: 239 84% 67%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 228 15% 15%;
+    --sidebar-accent-foreground: 225 10% 92%;
+    --sidebar-border: 228 15% 15%;
+    --sidebar-ring: 239 84% 67%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: var(--gradient-primary);
+  }
+
+  .glow-primary {
+    box-shadow: var(--shadow-glow);
+  }
 }
