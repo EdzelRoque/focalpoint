@@ -1,5 +1,7 @@
-import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import {
   Clock,
   Shield,
@@ -8,7 +10,7 @@ import {
   Settings,
   LogOut,
   Target,
-} from "lucide-react";
+} from 'lucide-react';
 import {
   AreaChart,
   Area,
@@ -17,52 +19,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-} from "recharts";
-
-const weeklyData = [
-  { day: "Mon", minutes: 120, blocks: 8 },
-  { day: "Tue", minutes: 90, blocks: 5 },
-  { day: "Wed", minutes: 180, blocks: 12 },
-  { day: "Thu", minutes: 45, blocks: 3 },
-  { day: "Fri", minutes: 150, blocks: 9 },
-  { day: "Sat", minutes: 60, blocks: 2 },
-  { day: "Sun", minutes: 30, blocks: 1 },
-];
-
-const sessions = [
-  {
-    id: 1,
-    goal: "Studying for machine learning exam",
-    duration: "2h 15m",
-    blocks: 8,
-    overrides: 1,
-    date: "Today",
-  },
-  {
-    id: 2,
-    goal: "Writing research paper on NLP",
-    duration: "1h 30m",
-    blocks: 5,
-    overrides: 0,
-    date: "Yesterday",
-  },
-  {
-    id: 3,
-    goal: "Reviewing React documentation",
-    duration: "45m",
-    blocks: 3,
-    overrides: 2,
-    date: "Apr 14",
-  },
-  {
-    id: 4,
-    goal: "Completing assignment on data structures",
-    duration: "3h 00m",
-    blocks: 12,
-    overrides: 1,
-    date: "Apr 13",
-  },
-];
+} from 'recharts';
 
 const StatCard = ({
   icon: Icon,
@@ -86,6 +43,70 @@ const StatCard = ({
 );
 
 const Dashboard = () => {
+  const [sessions, setSessions] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function fetchSessions() {
+      try {
+        const token = localStorage.getItem('token');
+        const { data } = await axios.get('http://localhost:3000/api/sessions', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        setSessions(data);
+      } catch (error) {
+        console.error('Failed to fetch sessions:', error);
+      }
+    }
+    fetchSessions();
+  }, []);
+
+  // Calculate dynamic stats from the sessions array
+  let totalMinutes = 0;
+  let totalBlocks = 0;
+  let totalOverrides = 0;
+
+  // Setup an object to hold the chart data for each day
+  const dayMap = { Sun: 0, Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0 };
+
+  sessions.forEach((session) => {
+    totalBlocks += session.blockCount || 0;
+    totalOverrides += session.overrideCount || 0;
+
+    // Only calculate time for finished sessions
+    if (session.actualEndTime) {
+      const start = new Date(session.startTime);
+      const end = new Date(session.actualEndTime);
+      const diff = Math.round((end.getTime() - start.getTime()) / 60000);
+
+      totalMinutes += diff;
+
+      // Figure out what day of the week this session was on and add the minutes
+      const dayName = start.toLocaleDateString('en-US', { weekday: 'short' });
+      if (dayMap[dayName] !== undefined) {
+        dayMap[dayName] += diff;
+      }
+    }
+  });
+
+  // Format the total time string nicely
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  const totalTimeText = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+
+  // Format the final array for the Recharts component
+  const weeklyData = [
+    { day: 'Mon', minutes: dayMap['Mon'] },
+    { day: 'Tue', minutes: dayMap['Tue'] },
+    { day: 'Wed', minutes: dayMap['Wed'] },
+    { day: 'Thu', minutes: dayMap['Thu'] },
+    { day: 'Fri', minutes: dayMap['Fri'] },
+    { day: 'Sat', minutes: dayMap['Sat'] },
+    { day: 'Sun', minutes: dayMap['Sun'] },
+  ];
+
   return (
     <div className="min-h-screen bg-background">
       {/* Sidebar */}
@@ -113,10 +134,14 @@ const Dashboard = () => {
       <header className="flex items-center justify-between border-b border-border bg-surface-elevated p-4 md:hidden">
         <Link to="/" className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-primary" />
-          <span className="text-sm font-semibold text-foreground">FocalPoint</span>
+          <span className="text-sm font-semibold text-foreground">
+            FocalPoint
+          </span>
         </Link>
         <div className="flex gap-2">
-          <Link to="/login" className="text-xs text-muted-foreground">Sign out</Link>
+          <Link to="/login" className="text-xs text-muted-foreground">
+            Sign out
+          </Link>
         </div>
       </header>
 
@@ -142,24 +167,22 @@ const Dashboard = () => {
               <StatCard
                 icon={Clock}
                 label="Total focus time"
-                value="11h 15m"
-                sub="+23% vs last week"
+                value={totalTimeText}
               />
               <StatCard
                 icon={Shield}
                 label="Pages blocked"
-                value="40"
+                value={totalBlocks.toString()}
               />
               <StatCard
                 icon={Target}
                 label="Sessions"
-                value="7"
+                value={sessions.length.toString()}
               />
               <StatCard
-                icon={TrendingUp}
-                label="Focus score"
-                value="87%"
-                sub="Great week!"
+                icon={TrendingUp} // You could change this import to AlertTriangle for overrides
+                label="Overrides"
+                value={totalOverrides.toString()}
               />
             </div>
 
@@ -198,23 +221,23 @@ const Dashboard = () => {
                     />
                     <XAxis
                       dataKey="day"
-                      tick={{ fontSize: 11, fill: "hsl(225 12% 28%)" }}
+                      tick={{ fontSize: 11, fill: 'hsl(225 12% 28%)' }}
                       axisLine={false}
                       tickLine={false}
                     />
                     <YAxis
-                      tick={{ fontSize: 11, fill: "hsl(225 12% 28%)" }}
+                      tick={{ fontSize: 11, fill: 'hsl(225 12% 28%)' }}
                       axisLine={false}
                       tickLine={false}
                       tickFormatter={(v) => `${v}m`}
                     />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: "hsl(228 20% 9%)",
-                        border: "1px solid hsl(228 15% 15%)",
-                        borderRadius: "8px",
-                        fontSize: "12px",
-                        color: "hsl(225 10% 92%)",
+                        backgroundColor: 'hsl(228 20% 9%)',
+                        border: '1px solid hsl(228 15% 15%)',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        color: 'hsl(225 10% 92%)',
                       }}
                     />
                     <Area
@@ -237,32 +260,59 @@ const Dashboard = () => {
                 </h2>
               </div>
               <div className="divide-y divide-border">
-                {sessions.map((session) => (
-                  <div
-                    key={session.id}
-                    className="flex items-center justify-between px-6 py-4"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-foreground">
-                        {session.goal}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {session.date} · {session.duration}
-                      </p>
+                {sessions.slice(0,5).map((session) => {
+                  let durationText = 'Active';
+                  if (session.actualEndTime) {
+                    const start = new Date(session.startTime);
+                    const end = new Date(session.actualEndTime);
+                    const diffInMinutes = Math.round(
+                      (end.getTime() - start.getTime()) / 60000,
+                    );
+
+                    // Format to "Xh Ym" or just "Xm"
+                    if (diffInMinutes >= 60) {
+                      const hours = Math.floor(diffInMinutes / 60);
+                      const mins = diffInMinutes % 60;
+                      durationText = `${hours}h ${mins}m`;
+                    } else {
+                      durationText = `${diffInMinutes}m`;
+                    }
+                  }
+
+                  const dateText = new Date(
+                    session.startTime,
+                  ).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                  });
+
+                  return (
+                    <div
+                      key={session._id}
+                      className="flex items-center justify-between px-6 py-4"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-foreground">
+                          {session.sessionGoal}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {dateText} · {durationText}
+                        </p>
+                      </div>
+                      <div className="ml-4 flex items-center gap-4 text-xs">
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                          <Shield className="h-3 w-3" />
+                          {session.blockCount}
+                        </span>
+                        <span className="flex items-center gap-1 text-destructive">
+                          {session.overrideCount > 0 && (
+                            <>⚠ {session.overrideCount}</>
+                          )}
+                        </span>
+                      </div>
                     </div>
-                    <div className="ml-4 flex items-center gap-4 text-xs">
-                      <span className="flex items-center gap-1 text-muted-foreground">
-                        <Shield className="h-3 w-3" />
-                        {session.blocks}
-                      </span>
-                      <span className="flex items-center gap-1 text-destructive">
-                        {session.overrides > 0 && (
-                          <>⚠ {session.overrides}</>
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </motion.div>
@@ -270,7 +320,7 @@ const Dashboard = () => {
       </main>
     </div>
   );
-};
+};;
 
 const SidebarLink = ({
   icon: Icon,
@@ -284,8 +334,8 @@ const SidebarLink = ({
   <button
     className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
       active
-        ? "bg-primary/10 font-medium text-primary"
-        : "text-muted-foreground hover:text-foreground"
+        ? 'bg-primary/10 font-medium text-primary'
+        : 'text-muted-foreground hover:text-foreground'
     }`}
   >
     <Icon className="h-4 w-4" />

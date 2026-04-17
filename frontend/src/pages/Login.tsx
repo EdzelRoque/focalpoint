@@ -1,10 +1,32 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Eye, EyeOff } from "lucide-react";
+import axios from 'axios';
 
 const Login = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const successMessage = location.state?.message;
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const handleLogin = async (e: any) => {
+    e.preventDefault();
+    setError("");
+
+    try {
+      const response : any = await axios.post("http://localhost:3000/auth/login", { email, password });
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("username", response.data.username)
+
+      navigate("/");
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Failed to login. Please try again.")
+    }
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6">
@@ -23,23 +45,37 @@ const Login = () => {
         </Link>
 
         <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-foreground">Welcome back</h1>
+          <h1 className="text-2xl font-semibold text-foreground">
+            Welcome back
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Sign in to start a focus session
           </p>
         </div>
 
-        <form
-          onSubmit={(e) => e.preventDefault()}
-          className="flex flex-col gap-4"
-        >
+        {/* Success Message + Error Message Box */}
+        <div className="w-full max-w-sm">
+          {successMessage && (
+            <div className="mb-4 rounded-lg border border-green-500/20 bg-green-500/10 p-3 text-sm text-green-500">
+              {successMessage}
+            </div>
+          )}
+          {error && (
+            <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-500">
+              {error}
+            </div>
+          )}
+        </div>
+        <form onSubmit={handleLogin} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-muted-foreground">
               Email
             </label>
             <input
               type="email"
+              value={email}
               placeholder="you@example.com"
+              onChange={(e: any) => setEmail(e.target.value)}
               className="rounded-lg border border-border bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:border-primary focus:outline-none"
             />
           </div>
@@ -50,8 +86,10 @@ const Login = () => {
             </label>
             <div className="relative">
               <input
-                type={showPassword ? "text" : "password"}
+                type={showPassword ? 'text' : 'password'}
+                value={password}
                 placeholder="••••••••"
+                onChange={(e: any) => setPassword(e.target.value)}
                 className="w-full rounded-lg border border-border bg-card px-3 py-2.5 pr-10 text-sm text-foreground placeholder:text-muted-foreground/40 focus:border-primary focus:outline-none"
               />
               <button
@@ -77,7 +115,7 @@ const Login = () => {
         </form>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          No account?{" "}
+          No account?{' '}
           <Link
             to="/register"
             className="text-primary transition-colors hover:text-primary/80"

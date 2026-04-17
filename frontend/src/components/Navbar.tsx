@@ -1,9 +1,21 @@
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
+import { LogOut } from 'lucide-react';
 
 const Navbar = () => {
   const location = useLocation();
   const isLanding = location.pathname === "/";
+  const username = localStorage.getItem("username");
+  const token = localStorage.getItem("token");
+  const isLoggedIn = !!token; // Turns the token into a true/false boolean
+
+  const handleSignOut = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('username');
+
+    // Force a hard refresh to the landing page so the state completely clears
+    window.location.href = '/';
+  };
 
   return (
     <motion.nav
@@ -21,35 +33,35 @@ const Navbar = () => {
         </Link>
 
         <div className="flex items-center gap-3">
-          {isLanding ? (
+          {isLoggedIn ? (
             <>
-              <Link
-                to="/login"
-                className="rounded-lg px-4 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+              <span className="text-sm font-medium text-foreground">
+                Hello, {username}
+              </span>
+              <button
+                onClick={handleSignOut}
+                className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
               >
-                Sign in
-              </Link>
-              <Link
-                to="/register"
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-              >
-                Get started
-              </Link>
+                <LogOut className="h-4 w-4" />
+                Sign out
+              </button>
             </>
           ) : (
             <>
               <Link
-                to="/dashboard"
-                className="rounded-lg px-4 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-              >
-                Dashboard
-              </Link>
-              <Link
                 to="/login"
                 className="rounded-lg px-4 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 Sign in
               </Link>
+              {isLanding && (
+                <Link
+                  to="/register"
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  Get started
+                </Link>
+              )}
             </>
           )}
         </div>

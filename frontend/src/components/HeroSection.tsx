@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import BrowserMockup from "@/components/BrowserMockup";
 
 const HeroSection = () => {
+  const isLoggedIn = !!localStorage.getItem("token");
+
   return (
     <section className="relative flex min-h-screen items-center justify-center overflow-hidden pt-14">
       {/* Background glow */}
@@ -29,7 +31,7 @@ const HeroSection = () => {
           transition={{ duration: 0.6, delay: 0.1 }}
           className="mx-auto max-w-3xl text-5xl font-semibold leading-tight tracking-tight text-foreground md:text-6xl"
         >
-          Focus on what matters.{" "}
+          Focus on what matters.{' '}
           <span className="text-gradient">AI blocks the rest.</span>
         </motion.h1>
 
@@ -49,18 +51,29 @@ const HeroSection = () => {
           transition={{ duration: 0.6, delay: 0.3 }}
           className="mt-10 flex items-center justify-center gap-4"
         >
-          <Link
-            to="/register"
-            className="rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary"
-          >
-            Start focusing — free
-          </Link>
-          <Link
-            to="/login"
-            className="rounded-lg border border-border bg-card px-6 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-          >
-            Sign in
-          </Link>
+          {isLoggedIn ? (
+            <Link
+              to="/dashboard"
+              className="rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary"
+            >
+              Go to Dashboard
+            </Link>
+          ) : (
+            <>
+              <Link
+                to="/register"
+                className="rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary"
+              >
+                Start focusing — free
+              </Link>
+              <Link
+                to="/login"
+                className="rounded-lg border border-border bg-card px-6 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+              >
+                Sign in
+              </Link>
+            </>
+          )}
         </motion.div>
 
         <motion.div

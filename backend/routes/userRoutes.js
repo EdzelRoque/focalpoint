@@ -63,7 +63,7 @@ router.route('/login')
                 { expiresIn: '7d' }
             );
 
-            return res.json({ token });
+            return res.json({ token, username: user.username });
         } catch (error) {
             return res.status(401).json({ error: error });
         }

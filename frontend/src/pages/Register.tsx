@@ -1,10 +1,31 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Eye, EyeOff } from "lucide-react";
+import axios from 'axios';
 
 const Register = () => {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const handleRegister = async(e: any) => {
+    e.preventDefault();
+    setError("");
+
+    try {
+      await axios.post("http://localhost:3000/auth/register", { username, email, password });
+
+      navigate("/login", {
+        state: { message: "Account successfully created, please login." }
+      });
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Failed to register. Please try again.");
+    }
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6">
@@ -30,17 +51,23 @@ const Register = () => {
           </p>
         </div>
 
-        <form
-          onSubmit={(e) => e.preventDefault()}
-          className="flex flex-col gap-4"
-        >
+        {error && (
+          <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-500">
+            {error}
+          </div>
+        )}
+        <form onSubmit={handleRegister} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-muted-foreground">
-              Name
+              Username
             </label>
             <input
               type="text"
-              placeholder="Edzel Roque"
+              value={username}
+              placeholder="Your Username"
+              onChange={(e: any) => {
+                setUsername(e.target.value);
+              }}
               className="rounded-lg border border-border bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:border-primary focus:outline-none"
             />
           </div>
@@ -51,7 +78,11 @@ const Register = () => {
             </label>
             <input
               type="email"
+              value={email}
               placeholder="you@example.com"
+              onChange={(e: any) => {
+                setEmail(e.target.value);
+              }}
               className="rounded-lg border border-border bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:border-primary focus:outline-none"
             />
           </div>
@@ -62,8 +93,12 @@ const Register = () => {
             </label>
             <div className="relative">
               <input
-                type={showPassword ? "text" : "password"}
+                type={showPassword ? 'text' : 'password'}
+                value={password}
                 placeholder="••••••••"
+                onChange={(e: any) => {
+                  setPassword(e.target.value);
+                }}
                 className="w-full rounded-lg border border-border bg-card px-3 py-2.5 pr-10 text-sm text-foreground placeholder:text-muted-foreground/40 focus:border-primary focus:outline-none"
               />
               <button
@@ -89,7 +124,7 @@ const Register = () => {
         </form>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Already have an account?{" "}
+          Already have an account?{' '}
           <Link
             to="/login"
             className="text-primary transition-colors hover:text-primary/80"
