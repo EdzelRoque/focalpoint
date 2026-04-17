@@ -3,16 +3,19 @@ import { ObjectId } from 'mongodb';
 import { 
     validateId, 
     validateSessionGoal, 
-    validateTimeDuration 
+    validateTimeDuration,
+    validateBlockSensitivity
 } from '../validation.js';
 
-export const createSession = async (userId, sessionGoal, durationInMinutes=null) => {
+export const createSession = async (userId, sessionGoal, durationInMinutes=null, blockSensitivity, strictMode) => {
     // Get the sessions collection
     const sessionCollection = await sessions();
 
-    // Validate userId, startTime, endTime, and sessionGoal
+    // Validate userId, sessionGoal, blockSensitivity, strictMode. Create a startTime
     userId = validateId(userId);
     sessionGoal = validateSessionGoal(sessionGoal);
+    blockSensitivity = validateBlockSensitivity(blockSensitivity);
+    if (typeof strictMode !== 'boolean') throw 'strictMode must be a boolean';
 
     const startTime = new Date();
     let expectedEndTime = null;
@@ -32,7 +35,9 @@ export const createSession = async (userId, sessionGoal, durationInMinutes=null)
         actualEndTime: null,
         isActive: true,
         blockCount: 0,
-        overrideCount: 0
+        overrideCount: 0,
+        blockSensitivity: blockSensitivity,
+        strictMode: strictMode
     };
 
     // Insert the new session into the database
@@ -66,18 +71,7 @@ export const endSession = async (sessionId) => {
 
     if (!updateInfo.acknowledged) throw 'Could not end session';
 
-    return {
-        _id: sessionId,
-        userId: session.userId.toString(),
-        sessionGoal: session.sessionGoal,
-        startTime: session.startTime,
-        expectedEndTime: session.expectedEndTime,
-        actualEndTime: actualEndTime,
-        isActive: false,
-        blockCount: session.blockCount,
-        overrideCount: session.overrideCount
-    };
-
+    return { success: true };
 };
 
 export const getSessionById = async (sessionId) => {

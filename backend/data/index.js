@@ -1,10 +1,11 @@
-import { register, login } from './user.js';
+import { register, login, updateUserSettings } from './user.js';
 import { createSession, endSession, getSessionsByUserId, getSessionById, incrementBlockCount, incrementOverrideCount } from './session.js';
 import { classify } from './classification.js';
 
 export const userData = {
     register,
-    login
+    login,
+    updateUserSettings
 };
 
 export const classificationData = {

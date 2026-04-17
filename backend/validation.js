@@ -99,6 +99,17 @@ const validatePageSnippet = (snippet) => {
     return snippet;
 };
 
+const validateBlockSensitivity = (blockSens) => {
+    blockSens = validateString(blockSens, 'Block Sensitivity');
+    if (
+      blockSens !== "lenient" &&
+      blockSens !== "standard" &&
+      blockSens !== "strict"
+    )
+      throw 'Mode must be lenient, standard, or strict';
+
+    return blockSens;
+}
 
 
-export { validateUsername, validateEmail, validatePassword, validateId, validateTimeDuration, validateSessionGoal, validateURL, validatePageTitle, validatePageSnippet };
+export { validateUsername, validateEmail, validatePassword, validateId, validateTimeDuration, validateSessionGoal, validateURL, validatePageTitle, validatePageSnippet, validateBlockSensitivity };

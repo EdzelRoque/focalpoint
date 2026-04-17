@@ -1,10 +1,14 @@
 import { Router } from 'express';
 import { userData } from '../data/index.js';
+import authMiddleware from '../middleware/auth.js';
 import jwt from 'jsonwebtoken';
 import { 
     validateUsername, 
     validateEmail, 
-    validatePassword } from '../validation.js';
+    validatePassword,
+    validateId,
+    validateBlockSensitivity
+ } from '../validation.js';
 
 const router = Router();
 
@@ -63,9 +67,53 @@ router.route('/login')
                 { expiresIn: '7d' }
             );
 
-            return res.json({ token, username: user.username });
+            return res.json({ token, ...user });
         } catch (error) {
             return res.status(401).json({ error: error });
+        }
+    });
+
+router.route('/settings')
+    .put(authMiddleware, async (req, res) => {
+        // Get userId from the authenticated user
+        let userId = req.user.userId;
+        let updateData = req.body;
+
+        if (!updateData || Object.keys(updateData).length === 0) {
+            return res.status(400).json({ error: 'You must provide settings to update' });
+        }
+
+        // Route-level validation
+        let { username, email, blockSensitivity, strictMode } = updateData;
+        try {
+            userId = validateId(userId);
+            username = validateUsername(username);
+            email = validateEmail(email);
+            if (typeof strictMode !== 'boolean') throw 'strictMode must be a boolean';
+            blockSensitivity = validateBlockSensitivity(blockSensitivity);
+        } catch (error) {
+            return res.status(400).json({ error: error });
+        }
+
+        // Call the data function
+        try {
+            const updatedUser = await userData.updateUserSettings(
+                userId, 
+                username, 
+                email, 
+                blockSensitivity, 
+                strictMode
+            );
+            
+            return res.json({ 
+                message: "Settings updated successfully", 
+                user: updatedUser 
+            });
+        } catch (error) {
+            if (error === 'Username is already taken' || error === 'Email is already registered') {
+                return res.status(409).json({ error: error });
+            }
+            return res.status(500).json({ error: error });
         }
     });
 

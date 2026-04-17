@@ -1,12 +1,46 @@
 import redis from '../config/redisConnection.js';
 import { Anthropic } from "@anthropic-ai/sdk";
 import crypto from 'crypto';
-import { validateURL, validatePageTitle, validatePageSnippet, validateSessionGoal } from "../validation.js";
+import { 
+  validateURL, 
+  validatePageTitle, 
+  validatePageSnippet, 
+  validateSessionGoal,
+  validateBlockSensitivity
+ } from "../validation.js";
 
-const callClaude = async (url, pageTitle, pageSnippet, sessionGoal) => {
+const callClaude = async (url, pageTitle, pageSnippet, sessionGoal, blockSensitivity) => {
     const client = new Anthropic({
         apiKey: process.env.ANTHROPIC_API_KEY
     });
+
+    let sensitivityInstructions = '';
+
+    switch (blockSensitivity) {
+      case 'lenient':
+        sensitivityInstructions = `
+          - Mode: LENIENT
+          - Rule 1: Allow broad exploration. If the content is even remotely related, tangentially helpful, or adjacent to the goal, respond with ALLOW.
+          - Rule 2: All neutral gateways, search engines, and platform homepages are ALLOWED.
+          - Rule 3: Only respond with BLOCK for explicit, unambiguous time-wasters (e.g., gaming, unrelated entertainment, shopping) that have absolutely zero connection to the goal.
+        `;
+        break;
+      case 'strict':
+        sensitivityInstructions = `
+          - Mode: STRICT
+          - Rule 1: If the page contains content explicitly relevant to the goal, respond with ALLOW.
+          - Rule 2: If the page is a neutral gateway, search engine, or platform homepage (like google.com or the youtube.com homepage) that the user must navigate through to search for their target content, respond with ALLOW.
+          - Rule 3: If the page is explicitly distracting, off-topic, or irrelevant, respond with BLOCK.
+        `;
+        break;
+      default: // "standard"
+        sensitivityInstructions = `
+          - Mode: STANDARD
+          - Rule 1: If the page contains content directly relevant or moderately helpful to the stated goal, respond with ALLOW.
+          - Rule 2: Neutral gateways or search engines (like google.com) and platform homepages (like youtube.com) are ALLOWED.
+          - Rule 3: If the page is explicitly distracting, off-topic, or wanders too far from the core goal, respond with BLOCK.
+        `;
+    }
 
     try {
       const response = await client.messages.create({
@@ -15,9 +49,7 @@ const callClaude = async (url, pageTitle, pageSnippet, sessionGoal) => {
         system: `You are a focus assistant that decides whether a webpage is relevant to a user's stated goal.
         
         CRITICAL RULES:
-        1. If the page contains content explicitly relevant to the goal, respond with ALLOW.
-        2. If the page is a neutral gateway, search engine, or platform homepage (like google.com or the youtube.com homepage) that the user must navigate through to search for their target content, respond with ALLOW.
-        3. If the page is explicitly distracting, off-topic, or irrelevant, respond with BLOCK.
+        ${sensitivityInstructions}
         
         You must respond with ONLY a JSON object in this exact format, nothing else:
         {"decision": "ALLOW", "reason": "one sentence explanation"}
@@ -28,7 +60,7 @@ const callClaude = async (url, pageTitle, pageSnippet, sessionGoal) => {
         messages: [
           {
             role: 'user',
-            content: `User's goal: ${sessionGoal}\n\nPage URL: ${url}\nPage title: ${pageTitle}\nPage content snippet: ${pageSnippet}\n\nIs this page relevant to the user's goal?`
+            content: `User's goal: ${sessionGoal}\n\nPage URL: ${url}\nPage title: ${pageTitle}\nPage content snippet: ${pageSnippet}\n\nIs this page relevant to the user's goal?`,
           },
         ],
       });
@@ -52,15 +84,16 @@ const callClaude = async (url, pageTitle, pageSnippet, sessionGoal) => {
     }
 };
 
-export const classify = async (url, pageTitle, pageSnippet, sessionGoal) => {
-    // Validate url, pageTitle, pageSnippet, and sessionGoal
+export const classify = async (url, pageTitle, pageSnippet, sessionGoal, blockSensitivity) => {
+    // Validate url, pageTitle, pageSnippet, sessionGoal, blockSensitivity
     url = validateURL(url);
     pageTitle = validatePageTitle(pageTitle);
     pageSnippet = validatePageSnippet(pageSnippet);
     sessionGoal = validateSessionGoal(sessionGoal);
+    blockSensitivity = validateBlockSensitivity(blockSensitivity);
 
     // Check Redis cache for existing classification result
-    const cacheKey = `classify:${crypto.createHash('md5').update(`${url}:${sessionGoal}`).digest('hex')}`;
+    const cacheKey = `classify:${crypto.createHash('md5').update(`${url}:${sessionGoal}:${blockSensitivity}`).digest('hex')}`;
     const cached = await redis.get(cacheKey);
     if (cached) {
         const parsed = JSON.parse(cached);
@@ -69,7 +102,7 @@ export const classify = async (url, pageTitle, pageSnippet, sessionGoal) => {
     }
 
     // Cache miss, proceed to classify the text
-    const decision = await callClaude(url, pageTitle, pageSnippet, sessionGoal);
+    const decision = await callClaude(url, pageTitle, pageSnippet, sessionGoal, blockSensitivity);
     await redis.set(cacheKey, JSON.stringify(decision), 'EX', 86400); // Cache for 24 hours
     
     return decision;
@@ -77,8 +110,8 @@ export const classify = async (url, pageTitle, pageSnippet, sessionGoal) => {
 
 
 // Helper function to clear classification cache for a specific URL and session goal (called when user overrides a block)
-export const clearClassificationCache = async (url, sessionGoal) => {
-    const cacheKey = `classify:${crypto.createHash('md5').update(`${url}:${sessionGoal}`).digest('hex')}`;
+export const clearClassificationCache = async (url, sessionGoal, blockSensitivity) => {
+    const cacheKey = `classify:${crypto.createHash('md5').update(`${url}:${sessionGoal}:${blockSensitivity}`).digest('hex')}`;
     await redis.del(cacheKey);
 
     // Set the new cache value to ALLOW with reason "User override - cache cleared" so that the user can visit the same site again without getting blocked

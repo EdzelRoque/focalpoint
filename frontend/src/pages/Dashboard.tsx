@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
 import {
   Clock,
   Shield,
@@ -20,6 +19,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import DashboardLayout from '@/components/DashboardLayout';
 
 const StatCard = ({
   icon: Icon,
@@ -108,239 +108,176 @@ const Dashboard = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Sidebar */}
-      <aside className="fixed left-0 top-0 hidden h-screen w-56 flex-col border-r border-border bg-surface-elevated p-4 md:flex">
-        <Link to="/" className="mb-8 flex items-center gap-2 px-2 pt-2">
-          <span className="h-2 w-2 rounded-full bg-primary glow-primary" />
-          <span className="text-sm font-semibold text-foreground">
-            FocalPoint
-          </span>
-        </Link>
-
-        <nav className="flex flex-1 flex-col gap-1">
-          <SidebarLink icon={BarChart3} label="Dashboard" active />
-          <SidebarLink icon={Clock} label="Sessions" />
-          <SidebarLink icon={Settings} label="Settings" />
-        </nav>
-
-        <button className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground">
-          <LogOut className="h-3.5 w-3.5" />
-          Sign out
-        </button>
-      </aside>
-
-      {/* Mobile header */}
-      <header className="flex items-center justify-between border-b border-border bg-surface-elevated p-4 md:hidden">
-        <Link to="/" className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-primary" />
-          <span className="text-sm font-semibold text-foreground">
-            FocalPoint
-          </span>
-        </Link>
-        <div className="flex gap-2">
-          <Link to="/login" className="text-xs text-muted-foreground">
-            Sign out
-          </Link>
+    <DashboardLayout>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        <div className="mb-8">
+          <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Your focus overview for this week
+          </p>
         </div>
-      </header>
 
-      {/* Main content */}
-      <main className="md:ml-56">
-        <div className="mx-auto max-w-5xl p-6 md:p-10">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            <div className="mb-8">
-              <h1 className="text-2xl font-semibold text-foreground">
-                Dashboard
-              </h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Your focus overview for this week
-              </p>
-            </div>
-
-            {/* Stats grid */}
-            <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-              <StatCard
-                icon={Clock}
-                label="Total focus time"
-                value={totalTimeText}
-              />
-              <StatCard
-                icon={Shield}
-                label="Pages blocked"
-                value={totalBlocks.toString()}
-              />
-              <StatCard
-                icon={Target}
-                label="Sessions"
-                value={sessions.length.toString()}
-              />
-              <StatCard
-                icon={TrendingUp} // You could change this import to AlertTriangle for overrides
-                label="Overrides"
-                value={totalOverrides.toString()}
-              />
-            </div>
-
-            {/* Chart */}
-            <div className="mb-8 rounded-xl border border-border bg-card p-6">
-              <h2 className="mb-4 text-sm font-medium text-foreground">
-                Focus time this week
-              </h2>
-              <div className="h-52">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={weeklyData}>
-                    <defs>
-                      <linearGradient
-                        id="focusGradient"
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2="1"
-                      >
-                        <stop
-                          offset="0%"
-                          stopColor="hsl(239 84% 67%)"
-                          stopOpacity={0.3}
-                        />
-                        <stop
-                          offset="100%"
-                          stopColor="hsl(239 84% 67%)"
-                          stopOpacity={0}
-                        />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="hsl(228 15% 15%)"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="day"
-                      tick={{ fontSize: 11, fill: 'hsl(225 12% 28%)' }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 11, fill: 'hsl(225 12% 28%)' }}
-                      axisLine={false}
-                      tickLine={false}
-                      tickFormatter={(v) => `${v}m`}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'hsl(228 20% 9%)',
-                        border: '1px solid hsl(228 15% 15%)',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                        color: 'hsl(225 10% 92%)',
-                      }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="minutes"
-                      stroke="hsl(239 84% 67%)"
-                      strokeWidth={2}
-                      fill="url(#focusGradient)"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Session history */}
-            <div className="rounded-xl border border-border bg-card">
-              <div className="border-b border-border px-6 py-4">
-                <h2 className="text-sm font-medium text-foreground">
-                  Recent sessions
-                </h2>
-              </div>
-              <div className="divide-y divide-border">
-                {sessions.slice(0,5).map((session) => {
-                  let durationText = 'Active';
-                  if (session.actualEndTime) {
-                    const start = new Date(session.startTime);
-                    const end = new Date(session.actualEndTime);
-                    const diffInMinutes = Math.round(
-                      (end.getTime() - start.getTime()) / 60000,
-                    );
-
-                    // Format to "Xh Ym" or just "Xm"
-                    if (diffInMinutes >= 60) {
-                      const hours = Math.floor(diffInMinutes / 60);
-                      const mins = diffInMinutes % 60;
-                      durationText = `${hours}h ${mins}m`;
-                    } else {
-                      durationText = `${diffInMinutes}m`;
-                    }
-                  }
-
-                  const dateText = new Date(
-                    session.startTime,
-                  ).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                  });
-
-                  return (
-                    <div
-                      key={session._id}
-                      className="flex items-center justify-between px-6 py-4"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-foreground">
-                          {session.sessionGoal}
-                        </p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          {dateText} · {durationText}
-                        </p>
-                      </div>
-                      <div className="ml-4 flex items-center gap-4 text-xs">
-                        <span className="flex items-center gap-1 text-muted-foreground">
-                          <Shield className="h-3 w-3" />
-                          {session.blockCount}
-                        </span>
-                        <span className="flex items-center gap-1 text-destructive">
-                          {session.overrideCount > 0 && (
-                            <>⚠ {session.overrideCount}</>
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </motion.div>
+        {/* Stats grid */}
+        <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <StatCard
+            icon={Clock}
+            label="Total focus time"
+            value={totalTimeText}
+          />
+          <StatCard
+            icon={Shield}
+            label="Pages blocked"
+            value={totalBlocks.toString()}
+          />
+          <StatCard
+            icon={Target}
+            label="Sessions"
+            value={sessions.length.toString()}
+          />
+          <StatCard
+            icon={TrendingUp} // You could change this import to AlertTriangle for overrides
+            label="Overrides"
+            value={totalOverrides.toString()}
+          />
         </div>
-      </main>
-    </div>
+
+        {/* Chart */}
+        <div className="mb-8 rounded-xl border border-border bg-card p-6">
+          <h2 className="mb-4 text-sm font-medium text-foreground">
+            Focus time this week
+          </h2>
+          <div className="h-52">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={weeklyData}>
+                <defs>
+                  <linearGradient
+                    id="focusGradient"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop
+                      offset="0%"
+                      stopColor="hsl(239 84% 67%)"
+                      stopOpacity={0.3}
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor="hsl(239 84% 67%)"
+                      stopOpacity={0}
+                    />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="hsl(228 15% 15%)"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="day"
+                  tick={{ fontSize: 11, fill: 'hsl(225 12% 28%)' }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: 'hsl(225 12% 28%)' }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v) => `${v}m`}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(228 20% 9%)',
+                    border: '1px solid hsl(228 15% 15%)',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    color: 'hsl(225 10% 92%)',
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="minutes"
+                  stroke="hsl(239 84% 67%)"
+                  strokeWidth={2}
+                  fill="url(#focusGradient)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Session history */}
+        <div className="rounded-xl border border-border bg-card">
+          <div className="border-b border-border px-6 py-4">
+            <h2 className="text-sm font-medium text-foreground">
+              Recent sessions
+            </h2>
+          </div>
+          <div className="divide-y divide-border">
+            {sessions.slice(0, 5).map((session) => {
+              let durationText = 'Active';
+              if (session.actualEndTime) {
+                const start = new Date(session.startTime);
+                const end = new Date(session.actualEndTime);
+                const diffInMinutes = Math.round(
+                  (end.getTime() - start.getTime()) / 60000,
+                );
+
+                // Format to "Xh Ym" or just "Xm"
+                if (diffInMinutes >= 60) {
+                  const hours = Math.floor(diffInMinutes / 60);
+                  const mins = diffInMinutes % 60;
+                  durationText = `${hours}h ${mins}m`;
+                } else {
+                  durationText = `${diffInMinutes}m`;
+                }
+              }
+
+              const dateText = new Date(session.startTime).toLocaleDateString(
+                'en-US',
+                {
+                  month: 'short',
+                  day: 'numeric',
+                },
+              );
+
+              return (
+                <div
+                  key={session._id}
+                  className="flex items-center justify-between px-6 py-4"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {session.sessionGoal}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {dateText} · {durationText}
+                    </p>
+                  </div>
+                  <div className="ml-4 flex items-center gap-4 text-xs">
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      <Shield className="h-3 w-3" />
+                      {session.blockCount}
+                    </span>
+                    <span className="flex items-center gap-1 text-destructive">
+                      {session.overrideCount > 0 && (
+                        <>⚠ {session.overrideCount}</>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </motion.div>
+    </DashboardLayout>
   );
-};;
-
-const SidebarLink = ({
-  icon: Icon,
-  label,
-  active = false,
-}: {
-  icon: React.ElementType;
-  label: string;
-  active?: boolean;
-}) => (
-  <button
-    className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
-      active
-        ? 'bg-primary/10 font-medium text-primary'
-        : 'text-muted-foreground hover:text-foreground'
-    }`}
-  >
-    <Icon className="h-4 w-4" />
-    {label}
-  </button>
-);
+};
 
 export default Dashboard;

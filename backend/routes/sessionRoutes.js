@@ -3,6 +3,7 @@ import { sessionData } from '../data/index.js';
 import authMiddleware from '../middleware/auth.js';
 import { clearClassificationCache } from '../data/classification.js';
 import {
+    validateBlockSensitivity,
     validateId,
     validateSessionGoal,
     validateTimeDuration,
@@ -38,20 +39,22 @@ router.route('/sessions')
         if (!sessionInfo || Object.keys(sessionInfo).length === 0) return res.status(400).json({ error: 'You must provide session information' });
 
         // Validate userId, sessionGoal, and durationInMinutes
-        let { sessionGoal, durationInMinutes } = sessionInfo;
+        let { sessionGoal, durationInMinutes, blockSensitivity, strictMode } = sessionInfo;
         try {
             userId = validateId(userId);
             sessionGoal = validateSessionGoal(sessionGoal);
             if (durationInMinutes) {
                 durationInMinutes = validateTimeDuration(durationInMinutes);
             }
+            blockSensitivity = validateBlockSensitivity(blockSensitivity);
+            if (typeof strictMode !== 'boolean') throw 'strictMode must be a boolean';
         } catch (error) {
             return res.status(400).json({ error: error });
         }
 
         // Call the createSession function from sessionData
         try {
-            const newSession = await sessionData.createSession(userId, sessionGoal, durationInMinutes);
+            const newSession = await sessionData.createSession(userId, sessionGoal, durationInMinutes, blockSensitivity, strictMode);
             return res.json(newSession);
         } catch (error) {
             return res.status(500).json({ error: error });
@@ -137,12 +140,13 @@ router.route('/sessions/:id/override')
         if (!sessionInfo || Object.keys(sessionInfo).length === 0) return res.status(400).json({ error: 'You must provide session information' });
 
         // Validate userId, sessionId, url, and sessionGoal
-        let { url, sessionGoal } = sessionInfo;
+        let { url, sessionGoal, blockSensitivity } = sessionInfo;
         try {
             userId = validateId(userId);
             sessionId = validateId(sessionId);
             url = validateURL(url);
             sessionGoal = validateSessionGoal(sessionGoal);
+            blockSensitivity = validateBlockSensitivity(blockSensitivity);
         } catch (error) {
             return res.status(400).json({ error: error });
         }
@@ -151,8 +155,8 @@ router.route('/sessions/:id/override')
         try {
             const updatedSession = await sessionData.incrementOverrideCount(sessionId);
 
-            // Clear the Redis cache for this URL+goal so next visit will auto allow
-            await clearClassificationCache(url, sessionGoal);
+            // Clear the Redis cache for this URL+goal+blockSensitivity so next visit will auto allow
+            await clearClassificationCache(url, sessionGoal, blockSensitivity);
 
             return res.json(updatedSession);
         } catch (error) {

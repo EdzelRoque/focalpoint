@@ -4,7 +4,15 @@ import bcrypt from 'bcrypt';
 import { 
     validateUsername, 
     validateEmail, 
-    validatePassword } from '../validation.js';
+    validatePassword,
+    validateId,
+    validateBlockSensitivity
+} from '../validation.js';
+
+const defaultPreferences = {
+    blockSensitivity: "standard",
+    strictMode: false
+};
 
 export const register = async (username, email, password) => {
     // Get the users collection
@@ -29,7 +37,8 @@ export const register = async (username, email, password) => {
     const newUser = {
         username: username,
         email: email,
-        password: hashedPassword
+        password: hashedPassword,
+        preferences: defaultPreferences
     }
 
     // Insert the new user into the database
@@ -39,7 +48,8 @@ export const register = async (username, email, password) => {
     return {
         _id: insertInfo.insertedId.toString(),
         username: username,
-        email: email
+        email: email,
+        preferences: newUser.preferences
     };
 };
 
@@ -63,6 +73,56 @@ export const login = async (email, password) => {
     return {
         _id: user._id.toString(),
         username: user.username,
-        email: user.email
+        email: user.email,
+        preferences: user.preferences
+    };
+};
+
+export const updateUserSettings = async (userId, username, email, blockSensitivity, strictMode) => {
+    // Get the user collection
+    const userCollection = await users();
+
+    // Validate all inputs
+    userId = validateId(userId);
+    username = validateUsername(username);
+    email = validateEmail(email);
+    blockSensitivity = validateBlockSensitivity(blockSensitivity);
+    if (typeof strictMode !== 'boolean') throw 'strictMode must be a boolean';
+    
+    // Check if the NEW username or email is already taken by a DIFFERENT user
+    const existingUsername = await userCollection.findOne({ 
+        username: username, 
+        _id: { $ne: new ObjectId(userId) } 
+    });
+    if (existingUsername) throw 'Username is already taken';
+
+    const existingEmail = await userCollection.findOne({ 
+        email: email, 
+        _id: { $ne: new ObjectId(userId) } 
+    });
+    if (existingEmail) throw 'Email is already registered';
+
+    // Construct the update object
+    const updatedUser = {
+        username: username,
+        email: email,
+        preferences: {
+            blockSensitivity: blockSensitivity,
+            strictMode: strictMode
+        }
+    };
+
+    // Update the document
+    const updateInfo = await userCollection.updateOne(
+        { _id: new ObjectId(userId) },
+        { $set: updatedUser }
+    );
+
+    if (!updateInfo.acknowledged) throw 'Could not update user settings';
+
+    // Return the updated data so the frontend can use it
+    return {
+        _id: userId,
+        ...updatedUser
     };
 };
