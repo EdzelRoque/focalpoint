@@ -1,21 +1,20 @@
-import { sessions } from '../config/mongoCollections.js';
+import { sessions, users } from '../config/mongoCollections.js';
 import { ObjectId } from 'mongodb';
 import { 
     validateId, 
     validateSessionGoal, 
-    validateTimeDuration,
-    validateBlockSensitivity
+    validateTimeDuration
 } from '../validation.js';
 
-export const createSession = async (userId, sessionGoal, durationInMinutes=null, blockSensitivity, strictMode) => {
+export const createSession = async (userId, sessionGoal, durationInMinutes=null) => {
     // Get the sessions collection
     const sessionCollection = await sessions();
+    //Get the users collection for the latest preferences
+    const userCollection = await users();
 
-    // Validate userId, sessionGoal, blockSensitivity, strictMode. Create a startTime
+    // Validate userId, sessionGoal, and create a startTime
     userId = validateId(userId);
     sessionGoal = validateSessionGoal(sessionGoal);
-    blockSensitivity = validateBlockSensitivity(blockSensitivity);
-    if (typeof strictMode !== 'boolean') throw 'strictMode must be a boolean';
 
     const startTime = new Date();
     let expectedEndTime = null;
@@ -25,6 +24,10 @@ export const createSession = async (userId, sessionGoal, durationInMinutes=null,
         // Multiply by 60,000 to convert minutes to milliseconds
         expectedEndTime = new Date(startTime.getTime() + durationInMinutes * 60000);
     }
+
+    // Look up the user to get their absolute latest settings
+    const user = await userCollection.findOne({ _id: new ObjectId(userId) });
+    if (!user) throw 'User not found';
 
     // Create the session object
     const newSession = {
@@ -36,8 +39,8 @@ export const createSession = async (userId, sessionGoal, durationInMinutes=null,
         isActive: true,
         blockCount: 0,
         overrideCount: 0,
-        blockSensitivity: blockSensitivity,
-        strictMode: strictMode
+        blockSensitivity: user.preferences.blockSensitivity,
+        strictMode: user.preferences.strictMode
     };
 
     // Insert the new session into the database

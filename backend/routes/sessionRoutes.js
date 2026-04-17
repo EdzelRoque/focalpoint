@@ -39,22 +39,20 @@ router.route('/sessions')
         if (!sessionInfo || Object.keys(sessionInfo).length === 0) return res.status(400).json({ error: 'You must provide session information' });
 
         // Validate userId, sessionGoal, and durationInMinutes
-        let { sessionGoal, durationInMinutes, blockSensitivity, strictMode } = sessionInfo;
+        let { sessionGoal, durationInMinutes } = sessionInfo;
         try {
             userId = validateId(userId);
             sessionGoal = validateSessionGoal(sessionGoal);
             if (durationInMinutes) {
                 durationInMinutes = validateTimeDuration(durationInMinutes);
             }
-            blockSensitivity = validateBlockSensitivity(blockSensitivity);
-            if (typeof strictMode !== 'boolean') throw 'strictMode must be a boolean';
         } catch (error) {
             return res.status(400).json({ error: error });
         }
 
         // Call the createSession function from sessionData
         try {
-            const newSession = await sessionData.createSession(userId, sessionGoal, durationInMinutes, blockSensitivity, strictMode);
+            const newSession = await sessionData.createSession(userId, sessionGoal, durationInMinutes);
             return res.json(newSession);
         } catch (error) {
             return res.status(500).json({ error: error });

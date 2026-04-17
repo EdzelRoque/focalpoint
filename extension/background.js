@@ -42,10 +42,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const url = payload.url;
         const pageTitle = payload.pageTitle;
         const pageSnippet = payload.pageSnippet;
-        const sessionGoal = activeSession.sessionGoal; // Get the session goal from the active session
+        // Extract from activeSession
+        const sessionGoal = activeSession.sessionGoal;
+        const blockSensitivity = activeSession.blockSensitivity;
+        const strictMode = activeSession.strictMode;
 
         // Validate the payload
-        if (!url || !pageTitle || !pageSnippet || !sessionGoal) {
+        if (!url || !pageTitle || !pageSnippet) {
             sendResponse({ error: "Invalid message payload" });
             return;
         }
@@ -70,7 +73,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                         url: url, 
                         pageTitle: pageTitle, 
                         pageSnippet: pageSnippet,
-                        sessionGoal: sessionGoal
+                        sessionGoal: sessionGoal,
+                        blockSensitivity: blockSensitivity
                     })
                 });
                 const data = await res.json();
@@ -99,8 +103,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     });
                 }
                 
-                // Send the final decision back to the content script
-                sendResponse({ decision: data.decision, reason: data.reason });
+                // Send the final decision back to the content script, including strictMode
+                sendResponse({ 
+                    decision: data.decision, 
+                    reason: data.reason,
+                    strictMode: strictMode
+                 });
             } catch (error) {
                 sendResponse({ error: error });
             }
@@ -111,59 +119,71 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     if (message.action === 'override_page') {
-        // Necessary for background.js
-        if (!activeSession) {
-            sendResponse({ error: 'No active session' });
+      // Necessary for background.js
+      if (!activeSession) {
+        sendResponse({ error: 'No active session' });
+        return;
+      }
+
+      // Get the URL from the message payload
+      const payload = message.payload;
+      const url = payload.url;
+      // Extra from activeSession
+      const sessionGoal = activeSession.sessionGoal;
+      const blockSensitivity = activeSession.blockSensitivity;
+
+      // Validate the payload
+      if (!url) {
+        sendResponse({ error: 'Invalid message payload' });
+        return;
+      }
+
+      // Call the backend override API to log the override action
+      const processOverride = async () => {
+        try {
+          // Load token from storage to authenticate the request
+          const { token } = await chrome.storage.local.get('token');
+          // Necessary for background.js
+          if (!token) {
+            sendResponse({ error: 'Not authenticated' });
             return;
+          }
+
+          await fetch(
+            `${BASE_URL}/api/sessions/${activeSession._id}/override`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                url: url,
+                sessionGoal: sessionGoal,
+                blockSensitivity: blockSensitivity,
+              }),
+            },
+          );
+
+          activeSession.overrideCount += 1;
+          await chrome.storage.local.set({ activeSession }); // Persist the updated session state
+
+          // Send a message to popup to update the UI stats
+          chrome.runtime.sendMessage({
+            action: 'stats_update',
+            stats: {
+              blockCount: activeSession.blockCount,
+              overrideCount: activeSession.overrideCount,
+            },
+          });
+
+          sendResponse({ status: 'Override logged' });
+        } catch (error) {
+          sendResponse({ error: error });
         }
-
-        // Get the URL from the message payload
-        const payload = message.payload;
-        const url = payload.url;
-        const sessionGoal = activeSession.sessionGoal;
-
-        // Call the backend override API to log the override action
-        const processOverride = async () => {
-            try {
-                // Load token from storage to authenticate the request
-                const { token } = await chrome.storage.local.get('token');
-                // Necessary for background.js
-                if (!token) {
-                    sendResponse({ error: 'Not authenticated' });
-                    return;
-                }
-
-                await fetch(`${BASE_URL}/api/sessions/${activeSession._id}/override`,{
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({
-                        url: url,
-                        sessionGoal: sessionGoal,
-                    })
-                });
-                
-                activeSession.overrideCount += 1;
-                await chrome.storage.local.set({ activeSession }); // Persist the updated session state
-
-                // Send a message to popup to update the UI stats
-                chrome.runtime.sendMessage({
-                    action: 'stats_update',
-                    stats: {
-                    blockCount: activeSession.blockCount,
-                    overrideCount: activeSession.overrideCount,
-                    },
-                });
-
-                sendResponse({ status: 'Override logged' });
-            } catch (error) {
-                sendResponse({ error: error });
-            }
-        };
-        // Execute the async function
-        processOverride();
+      };
+      // Execute the async function
+      processOverride();
     }
 
     // Synchronously return true to keep the message channel open
