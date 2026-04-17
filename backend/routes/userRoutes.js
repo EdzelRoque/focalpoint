@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { userData } from '../data/index.js';
+import { users } from '../config/mongoCollections.js';
+import { ObjectId } from 'mongodb';
 import authMiddleware from '../middleware/auth.js';
 import jwt from 'jsonwebtoken';
 import { 
@@ -114,6 +116,26 @@ router.route('/settings')
                 return res.status(409).json({ error: error });
             }
             return res.status(500).json({ error: error });
+        }
+    });
+
+// A simple route to fetch the absolute latest user data using their token
+router.route('/me')
+    .get(authMiddleware, async (req, res) => {
+        try {
+            const userId = req.user.userId;
+            const userCollection = await users(); // Don't forget to import users!
+            
+            const user = await userCollection.findOne({ _id: new ObjectId(userId) });
+            if (!user) return res.status(404).json({ error: 'User not found' });
+
+            return res.json({
+                username: user.username,
+                email: user.email,
+                preferences: user.preferences
+            });
+        } catch (error) {
+            return res.status(500).json({ error: 'Server error' });
         }
     });
 

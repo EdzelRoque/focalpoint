@@ -1,9 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { User, Bell, Shield, Sliders, Trash2 } from 'lucide-react';
-
+import axios from 'axios';
 import DashboardLayout from '@/components/DashboardLayout';
 import { toast } from 'sonner';
+
+const sensitivityToString: Record<number, string> = {
+  0: 'lenient',
+  1: 'standard',
+  2: 'strict',
+};
+const stringToSensitivity: Record<string, number> = {
+  lenient: 0,
+  standard: 1,
+  strict: 2,
+};
 
 const Section = ({
   icon: Icon,
@@ -72,14 +83,52 @@ const Toggle = ({
 const SENSITIVITY_LEVELS = ['Lenient', 'Standard', 'Strict'] as const;
 
 const Settings = () => {
-  const [name, setName] = useState('Edzel Roque');
-  const [email, setEmail] = useState('edzel@example.com');
-  const [sensitivity, setSensitivity] = useState(1); // 0=Lenient, 1=Standard, 2=Strict
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [sensitivity, setSensitivity] = useState(1);
   const [weeklyReport, setWeeklyReport] = useState(true);
   const [strictMode, setStrictMode] = useState(false);
 
-  const handleSave = () => {
-    toast.success('Settings saved successfully');
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const res = await axios.get('http://localhost:3000/auth/me', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        setUsername(res.data.username);
+        setEmail(res.data.email);
+        setSensitivity(
+          stringToSensitivity[res.data.preferences.blockSensitivity] ?? 1,
+        );
+        setStrictMode(res.data.preferences.strictMode);
+      } catch (error) {
+        toast.error('Failed to load settings');
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const handleSave = async () => {
+    try {
+        const token = localStorage.getItem('token');
+        await axios.put('http://localhost:3000/auth/settings', {
+            username,
+            email,
+            blockSensitivity: sensitivityToString[sensitivity],
+            strictMode
+        }, {
+            headers: { Authorization: `Bearer ${token}`}
+        });
+
+        localStorage.setItem('username', username);
+        toast.success('Settings saved successfully');
+    } catch (error: any) {
+        toast.error(error.response?.data?.error || 'Failed to save settings');
+    }
   };
 
   return (
@@ -102,10 +151,10 @@ const Settings = () => {
             title="Account"
             description="Your personal information"
           >
-            <Field label="Name">
+            <Field label="Username">
               <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none sm:w-64"
               />
             </Field>

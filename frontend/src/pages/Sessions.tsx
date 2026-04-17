@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import axios from 'axios';
 import {
   Search,
   Shield,
@@ -10,91 +11,63 @@ import {
 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 
-const allSessions = [
-  {
-    id: 1,
-    goal: 'Studying for machine learning exam',
-    duration: '2h 15m',
-    blocks: 8,
-    overrides: 1,
-    date: 'Today',
-    time: '2:30 PM',
-    status: 'completed',
-  },
-  {
-    id: 2,
-    goal: 'Writing research paper on NLP',
-    duration: '1h 30m',
-    blocks: 5,
-    overrides: 0,
-    date: 'Yesterday',
-    time: '9:15 AM',
-    status: 'completed',
-  },
-  {
-    id: 3,
-    goal: 'Reviewing React documentation',
-    duration: '45m',
-    blocks: 3,
-    overrides: 2,
-    date: 'Apr 14',
-    time: '4:00 PM',
-    status: 'completed',
-  },
-  {
-    id: 4,
-    goal: 'Completing assignment on data structures',
-    duration: '3h 00m',
-    blocks: 12,
-    overrides: 1,
-    date: 'Apr 13',
-    time: '10:00 AM',
-    status: 'completed',
-  },
-  {
-    id: 5,
-    goal: 'Reading systems design book',
-    duration: '1h 10m',
-    blocks: 4,
-    overrides: 0,
-    date: 'Apr 12',
-    time: '7:30 PM',
-    status: 'completed',
-  },
-  {
-    id: 6,
-    goal: 'Practicing LeetCode problems',
-    duration: '55m',
-    blocks: 6,
-    overrides: 3,
-    date: 'Apr 11',
-    time: '1:00 PM',
-    status: 'interrupted',
-  },
-  {
-    id: 7,
-    goal: 'Watching ML lecture videos',
-    duration: '2h 00m',
-    blocks: 2,
-    overrides: 0,
-    date: 'Apr 10',
-    time: '11:00 AM',
-    status: 'completed',
-  },
-];
+const formatDate = (dateString: string) => {
+  const d = new Date(dateString);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
+const formatTime = (dateString: string) => {
+  const d = new Date(dateString);
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+};
+
+const formatDuration = (start: string, end: string | null) => {
+  if (!end) return 'Active now';
+  const diffMs = new Date(end).getTime() - new Date(start).getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const hours = Math.floor(diffMins / 60);
+  const mins = diffMins % 60;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
+};
 
 const PAGE_SIZE = 10;
 
 const Sessions = () => {
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<'all' | 'completed' | 'interrupted'>(
+  const [filter, setFilter] = useState<'all' | 'completed' | 'active'>(
     'all',
   );
   const [page, setPage] = useState(1);
+  const [sessions, setSessions] = useState<any[]>([]);
 
-  const filtered = allSessions.filter((s) => {
-    const matchesQuery = s.goal.toLowerCase().includes(query.toLowerCase());
-    const matchesFilter = filter === 'all' || s.status === filter;
+  useEffect(() => {
+    const fetchSessions = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const res = await axios.get('http://localhost:3000/api/sessions', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        // Sort newest first
+        const sorted = res.data.sort(
+          (a: any, b: any) =>
+            new Date(b.startTime).getTime() - new Date(a.startTime).getTime(),
+        );
+        setSessions(sorted);
+      } catch (error) {
+        console.error('Failed to fetch sessions');
+      }
+    };
+    fetchSessions();
+  }, []);
+
+  const filtered = sessions.filter((s) => {
+    const matchesQuery = s.sessionGoal.toLowerCase().includes(query.toLowerCase());
+    const status = s.isActive ? 'active' : 'completed';
+    const matchesFilter = filter === 'all' || status === filter;
     return matchesQuery && matchesFilter;
   });
 
@@ -131,7 +104,7 @@ const Sessions = () => {
             />
           </div>
           <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1">
-            {(['all', 'completed', 'interrupted'] as const).map((f) => (
+            {(['all', 'completed', 'active'] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
@@ -168,37 +141,37 @@ const Sessions = () => {
             <div className="divide-y divide-border">
               {pageItems.map((s) => (
                 <div
-                  key={s.id}
+                  key={s._id}
                   className="flex flex-col gap-3 px-6 py-4 transition-colors hover:bg-surface-elevated sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p className="truncate text-sm font-medium text-foreground">
-                        {s.goal}
+                        {s.sessionGoal}
                       </p>
-                      {s.status === 'interrupted' && (
-                        <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-medium text-destructive">
-                          Interrupted
+                      {s.isActive === true && (
+                        <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
+                          Active
                         </span>
                       )}
                     </div>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      {s.date} · {s.time}
+                      {formatDate(s.startTime)} · {formatTime(s.startTime)}
                     </p>
                   </div>
                   <div className="flex items-center gap-4 text-xs">
                     <span className="flex items-center gap-1 font-mono text-muted-foreground">
                       <Clock className="h-3 w-3" />
-                      {s.duration}
+                      {formatDuration(s.startTime, s.actualEndTime)}
                     </span>
                     <span className="flex items-center gap-1 text-muted-foreground">
                       <Shield className="h-3 w-3" />
-                      {s.blocks}
+                      {s.blockCount || 0}
                     </span>
-                    {s.overrides > 0 && (
+                    {s.overrideCount > 0 && (
                       <span className="flex items-center gap-1 text-destructive">
                         <AlertTriangle className="h-3 w-3" />
-                        {s.overrides}
+                        {s.overrideCount}
                       </span>
                     )}
                   </div>
