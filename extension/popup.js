@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = 'https://focalpoint-q8r5.onrender.com';
 
 // DOM elements for each view
 const viewLogin = document.getElementById('view-login');
