@@ -152,7 +152,7 @@ loginForm.addEventListener('submit', async (event) => {
 // Register link logic
 registerLink.addEventListener('click', (event) => {
   event.preventDefault();
-  chrome.tabs.create({ url: `${BASE_URL}/auth/register` });
+  chrome.tabs.create({ url: `https://focalpoint-rho.vercel.app/register` });
 });
 
 // Session start logic
