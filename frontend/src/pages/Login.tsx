@@ -18,7 +18,7 @@ const Login = () => {
     setError("");
 
     try {
-      const response : any = await axios.post("http://localhost:3000/auth/login", { email, password });
+      const response : any = await axios.post("https://focalpoint-q8r5.onrender.com/auth/login", { email, password });
       localStorage.setItem("token", response.data.token);
       localStorage.setItem("username", response.data.username)
 

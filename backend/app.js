@@ -12,6 +12,5 @@ configRoutes(app);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log('Server is running!');
-  console.log(`Routes running on http://localhost:${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });

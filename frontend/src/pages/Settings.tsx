@@ -95,7 +95,7 @@ const Settings = () => {
         const token = localStorage.getItem('token');
         if (!token) return;
 
-        const res = await axios.get('http://localhost:3000/auth/me', {
+        const res = await axios.get('https://focalpoint-q8r5.onrender.com/auth/me', {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -115,7 +115,7 @@ const Settings = () => {
   const handleSave = async () => {
     try {
         const token = localStorage.getItem('token');
-        await axios.put('http://localhost:3000/auth/settings', {
+        await axios.put('https://focalpoint-q8r5.onrender.com/auth/settings', {
             username,
             email,
             blockSensitivity: sensitivityToString[sensitivity],

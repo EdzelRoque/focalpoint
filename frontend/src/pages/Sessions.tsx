@@ -47,7 +47,7 @@ const Sessions = () => {
         const token = localStorage.getItem('token');
         if (!token) return;
 
-        const res = await axios.get('http://localhost:3000/api/sessions', {
+        const res = await axios.get('https://focalpoint-q8r5.onrender.com/api/sessions', {
           headers: { Authorization: `Bearer ${token}` },
         });
 

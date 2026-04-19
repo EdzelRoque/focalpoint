@@ -49,7 +49,7 @@ const Dashboard = () => {
     async function fetchSessions() {
       try {
         const token = localStorage.getItem('token');
-        const { data } = await axios.get('http://localhost:3000/api/sessions', {
+        const { data } = await axios.get('https://focalpoint-q8r5.onrender.com/api/sessions', {
           headers: {
             Authorization: `Bearer ${token}`,
           },

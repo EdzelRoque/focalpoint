@@ -24,6 +24,6 @@
     ],
     "host_permissions": [
         "<all_urls>",
-        "http://localhost:3000/*"
+        "https://focalpoint-q8r5.onrender.com/*"
     ]
 }

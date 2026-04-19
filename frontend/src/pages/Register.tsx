@@ -17,7 +17,7 @@ const Register = () => {
     setError("");
 
     try {
-      await axios.post("http://localhost:3000/auth/register", { username, email, password });
+      await axios.post("https://focalpoint-q8r5.onrender.com/auth/register", { username, email, password });
 
       navigate("/login", {
         state: { message: "Account successfully created, please login." }
