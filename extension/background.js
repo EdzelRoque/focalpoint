@@ -9,7 +9,6 @@ const init = async () => {
         const data = await chrome.storage.local.get(["activeSession"]);
         if (data.activeSession) {
             activeSession = data.activeSession;
-            console.log("Background: Loaded active session from storage ->", activeSession.sessionGoal);
         }
     } catch (err) {
         console.error("Background: Error loading active session from storage", err);

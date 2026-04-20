@@ -166,10 +166,6 @@ const classify_page = async () => {
     if (window.location.href !== url) return;
 
     if (!response || response.error) {
-      console.log(
-        'FocalPoint:',
-        response?.error || 'No response from background',
-      );
       return;
     }
 
