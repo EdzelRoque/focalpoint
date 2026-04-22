@@ -17,8 +17,10 @@ All three pieces talk to the same backend. The extension and frontend both hardc
 ### Backend (`backend/`)
 ```
 npm start          # node app.js — reads PORT (default 3000), MONGO_URI, REDIS_URL, JWT_SECRET, ANTHROPIC_API_KEY from env
+npm test           # vitest run (node environment, tests under routes/**/*.test.js)
+npm run test:watch
 ```
-No test script is wired up. No linter configured.
+No linter configured.
 
 ### Frontend (`frontend/`)
 ```
@@ -36,7 +38,7 @@ No build step. Load unpacked in `chrome://extensions` pointed at the `extension/
 ## Architecture
 
 ### Data flow (the core loop)
-1. User starts a session from the **extension popup** (`popup.js`) or the **frontend dashboard**. This POSTs `/api/sessions` with `{ sessionGoal, durationInMinutes }` and stores the returned session (with `_id`, `blockSensitivity`, `strictMode`) in `chrome.storage.local` as `activeSession`.
+1. User starts a session from the **extension popup** (`popup.js`). This POSTs `/api/sessions` with `{ sessionGoal, durationInMinutes }` and stores the returned session (with `_id`, `blockSensitivity`, `strictMode`) in `chrome.storage.local` as `activeSession`.
 2. `content.js` runs on every page (`<all_urls>`, `document_idle`), scrapes `url` + `pageTitle` + `pageSnippet`, and messages `background.js` with `classify_page`.
 3. `background.js` (service worker, MV3) forwards to `POST /api/classify` with the JWT from `chrome.storage.local.token`.
 4. Backend `data/classification.js` checks Redis for a cached decision keyed on `md5(url:sessionGoal:blockSensitivity)` (24h TTL). On miss, it calls Anthropic (`claude-haiku-4-5`) with sensitivity-specific system rules (`lenient` / `standard` / `strict`) and expects a strict JSON `{decision, reason}` reply. On any parse/API failure, it defaults to `ALLOW`.
@@ -73,3 +75,9 @@ No build step. Load unpacked in `chrome://extensions` pointed at the `extension/
 - The `/api/sessions/:id/override` endpoint does double duty: it increments the override counter AND rewrites the Redis cache entry. Don't split those — the cache rewrite is what prevents re-blocking.
 - The Anthropic classifier is prompted to return *only* a JSON object; the parser strips ``` fences defensively. If the model drifts, the fallback is `ALLOW` (fail-open by design — we don't want the extension to accidentally block everything on an API hiccup).
 - There's no shared config for the backend URL: the extension hardcodes it in `background.js`, and the frontend hardcodes it in axios calls. Update both when the backend moves.
+- Backend tests use **vitest + supertest**. Test files live next to the route file they test (`routes/foo.test.js` alongside `routes/foo.js`). The test framework mocks `../data/index.js`, `../data/classification.js`, and `../middleware/auth.js` — the real implementations connect to MongoDB/Redis at import time and must never be loaded in tests.
+
+## Critical Rules for Claude
+- Never modify code unless explicitly asked
+- Always explain what you're about to do before doing it
+- When writing tests, match the actual current behavior, not assumed behavior
