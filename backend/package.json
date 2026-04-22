@@ -7,8 +7,13 @@
   "type": "module",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "start": "node app.js"
+  },
+  "vitest": {
+    "environment": "node",
+    "globals": true
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.87.0",
@@ -19,5 +24,9 @@
     "ioredis": "^5.10.1",
     "jsonwebtoken": "^9.0.3",
     "mongodb": "^7.1.1"
+  },
+  "devDependencies": {
+    "supertest": "^7.2.2",
+    "vitest": "^4.1.5"
   }
 }
