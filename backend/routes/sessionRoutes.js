@@ -79,6 +79,9 @@ router.route('/sessions/:id')
             if (!session) {
                 return res.status(404).json({ error: 'Session not found' });
             }
+            if (session.userId.toString() !== req.user.userId) {
+                return res.status(403).json({ error: 'Forbidden' });
+            }
             return res.json(session);
         } catch (error) {
             return res.status(500).json({ error: error });
@@ -99,6 +102,13 @@ router.route('/sessions/:id')
 
         // Call the endSession function from sessionData
         try {
+            const session = await sessionData.getSessionById(sessionId);
+            if (!session) {
+                return res.status(404).json({ error: 'Session not found' });
+            }
+            if (session.userId.toString() !== req.user.userId) {
+                return res.status(403).json({ error: 'Forbidden' });
+            }
             const updatedSession = await sessionData.endSession(sessionId);
             return res.json(updatedSession);
         } catch (error) {
@@ -122,6 +132,13 @@ router.route('/sessions/:id/block')
 
         // Call the incrementBlockCount function from sessionData
         try {
+            const session = await sessionData.getSessionById(sessionId);
+            if (!session) {
+                return res.status(404).json({ error: 'Session not found' });
+            }
+            if (session.userId.toString() !== req.user.userId) {
+                return res.status(403).json({ error: 'Forbidden' });
+            }
             const updatedSession = await sessionData.incrementBlockCount(sessionId);
             return res.json(updatedSession);
         } catch (error) {
@@ -151,6 +168,13 @@ router.route('/sessions/:id/override')
 
         // Call the incrementOverrideCount function from sessionData
         try {
+            const session = await sessionData.getSessionById(sessionId);
+            if (!session) {
+                return res.status(404).json({ error: 'Session not found' });
+            }
+            if (session.userId.toString() !== req.user.userId) {
+                return res.status(403).json({ error: 'Forbidden' });
+            }
             const updatedSession = await sessionData.incrementOverrideCount(sessionId);
 
             // Clear the Redis cache for this URL+goal+blockSensitivity so next visit will auto allow
