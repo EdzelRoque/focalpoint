@@ -46,7 +46,9 @@ No build step. Load unpacked in `chrome://extensions` pointed at the `extension/
 6. Tab switches (`chrome.tabs.onActivated`) and SPA URL changes (`chrome.tabs.onUpdated` with `changeInfo.url`) re-trigger classification via `tab_change` / `spa_change` messages. The SPA path exists specifically because sites like YouTube don't fire a full navigation.
 
 ### Backend layout
-- `app.js` — CORS-open Express app, mounts routes via `routes/index.js`.
+- `app.js` — Express app with CORS allowlist, env-var startup guard, and rate limiting. Mounts routes via `routes/index.js`.
+- `middleware/corsConfig.js` — CORS options object; allowlist contains the Vercel frontend origin and a regex matching any `chrome-extension://` origin.
+- `middleware/limiters.js` — `createLimiters({ store, ...overrides })` factory. Returns `{ global, auth, classify }` limiters (60 / 10 / 100 req/min). Accepts option overrides so tests can pass `{ max: 2 }` for fast 429 assertions without touching `vi.resetModules()`.
 - `routes/` — `/auth/*` (userRoutes), `/api/sessions*` (sessionRoutes), `/api/classify` (classificationRoutes). All 404s handled by a catch-all.
 - `data/` — thin data-access layer re-exported through `data/index.js` as `userData`, `sessionData`, `classificationData`. Routes import *only* from `data/index.js`.
 - `middleware/auth.js` — `Bearer` JWT verification, attaches `req.user.userId`. Token signed with `JWT_SECRET`, 7-day expiry.
@@ -75,7 +77,8 @@ No build step. Load unpacked in `chrome://extensions` pointed at the `extension/
 - The `/api/sessions/:id/override` endpoint does double duty: it increments the override counter AND rewrites the Redis cache entry. Don't split those — the cache rewrite is what prevents re-blocking.
 - The Anthropic classifier is prompted to return *only* a JSON object; the parser strips ``` fences defensively. If the model drifts, the fallback is `ALLOW` (fail-open by design — we don't want the extension to accidentally block everything on an API hiccup).
 - There's no shared config for the backend URL: the extension hardcodes it in `background.js`, and the frontend hardcodes it in axios calls. Update both when the backend moves.
-- Backend tests use **vitest + supertest**. Test files live next to the route file they test (`routes/foo.test.js` alongside `routes/foo.js`). The test framework mocks `../data/index.js`, `../data/classification.js`, and `../middleware/auth.js` — the real implementations connect to MongoDB/Redis at import time and must never be loaded in tests.
+- Backend tests use **vitest + supertest**. Test files live next to the route file they test (`routes/foo.test.js` alongside `routes/foo.js`). Only mock **external** dependencies (MongoDB, Redis, Anthropic API) — their real implementations connect to live services at import time and must never be loaded in tests. Never mock your own application code. For pure middleware tests (CORS, rate limiting) use real Express + supertest with no mocks at all.
+- The three mocks required for session-route tests: `../data/index.js`, `../data/classification.js`, and `../middleware/auth.js`. Auth is bypassed via a mock that reads `req.headers['x-test-user-id']`.
 
 ## Critical Rules for Claude
 - Never modify code unless explicitly asked
