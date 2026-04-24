@@ -1,3 +1,25 @@
 node_modules/
+
+# Environment files
 .env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
+# Claude Code dev tool settings/memory — never public
+.claude/
+
+# OS artifacts
 .DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Internal planning docs — not for public repo
+TODO.md
+implementation specs/
