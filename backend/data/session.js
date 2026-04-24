@@ -25,6 +25,13 @@ export const createSession = async (userId, sessionGoal, durationInMinutes=null)
         expectedEndTime = new Date(startTime.getTime() + durationInMinutes * 60000);
     }
 
+    // Reject if the user already has an active session (duplicate-device or zombie from a prior crash)
+    const existingActive = await sessionCollection.findOne({
+        userId: new ObjectId(userId),
+        isActive: true
+    });
+    if (existingActive) throw 'You already have an active session';
+
     // Look up the user to get their absolute latest settings
     const user = await userCollection.findOne({ _id: new ObjectId(userId) });
     if (!user) throw 'User not found';
@@ -73,6 +80,7 @@ export const endSession = async (sessionId) => {
     );
 
     if (!updateInfo.acknowledged) throw 'Could not end session';
+    if (updateInfo.matchedCount === 0) throw 'Session not found';
 
     return { success: true };
 };
@@ -99,7 +107,11 @@ export const getSessionsByUserId = async (userId) => {
     userId = validateId(userId);
 
     // Find all sessions for the given userId
-    let userSessions = await sessionCollection.find({ userId: new ObjectId(userId) }).toArray();
+    let userSessions = await sessionCollection
+        .find({ userId: new ObjectId(userId) })
+        .sort({ startTime: -1 })
+        .limit(100)
+        .toArray();
 
     userSessions = userSessions.map(session => {
         session._id = session._id.toString();
@@ -123,6 +135,7 @@ export const incrementBlockCount = async (sessionId) => {
         { $inc: { blockCount: 1 } }
     );
     if (!updateInfo.acknowledged) throw 'Could not increment block count';
+    if (updateInfo.matchedCount === 0) throw 'Session not found';
 
     return { success: true };
 };
@@ -140,6 +153,7 @@ export const incrementOverrideCount = async (sessionId) => {
         { $inc: { overrideCount: 1 } }
     );
     if (!updateInfo.acknowledged) throw 'Could not increment override count';
-    
+    if (updateInfo.matchedCount === 0) throw 'Session not found';
+
     return { success: true };
 };
