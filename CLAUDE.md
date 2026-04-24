@@ -17,7 +17,7 @@ All three pieces talk to the same backend. The extension and frontend both hardc
 ### Backend (`backend/`)
 ```
 npm start          # node app.js — reads PORT (default 3000), MONGO_URI, REDIS_URL, JWT_SECRET, ANTHROPIC_API_KEY from env
-npm test           # vitest run (node environment, tests under routes/**/*.test.js)
+npm test           # vitest run (node environment, tests under routes/ and data/)
 npm run test:watch
 ```
 No linter configured.
@@ -86,7 +86,7 @@ npm test                         # playwright test — runs the spec suite in ex
 - Backend tests use **vitest + supertest**. Test files live next to whatever they test — `routes/foo.test.js` alongside `routes/foo.js`, `data/foo.test.js` alongside `data/foo.js`. Only mock **external** dependencies (MongoDB, Redis, Anthropic API) — their real implementations connect to live services at import time and must never be loaded in tests. Never mock your own application code. For pure middleware tests (CORS, rate limiting) use real Express + supertest with no mocks at all.
 - Session-route tests mock `../data/index.js` (covering both `sessionData` and `classificationData`) and `../middleware/auth.js`. Auth is bypassed via a mock that reads `req.headers['x-test-user-id']`. Do not mock `../data/classification.js` directly from route tests — `clearClassificationCache` is exposed through `classificationData` on `data/index.js`.
 - Extension tests use **`@playwright/test`** in `extension/tests/`. They launch real headed Chromium with the unpacked extension loaded — headed mode is non-negotiable, MV3 extensions do not run in Playwright's headless mode. Backend traffic is mocked via `context.route('**/focalpoint-q8r5.onrender.com/**', ...)` — never hit the real backend from specs. Use the shared `seedSession` helper in `extension/tests/fixtures.js` rather than trying to set the background service worker's in-memory state directly: `background.js` runs as an ES module, so module-scoped variables like `activeSession` cannot be assigned via `sw.evaluate()`. `seedSession` works around this by injecting a `session_started` message through `chrome.scripting.executeScript`.
-- CI lives in `.github/workflows/test.yml` and runs on PR and push to `main`. Two parallel jobs: `backend-test` runs `npm test` in `backend/`; `extension-test` installs Playwright + Chromium with system deps and runs `xvfb-run npm test` in `extension/` (xvfb is required because extension specs need headed Chrome).
+- CI lives in `.github/workflows/test.yml` and runs on PR and push to `main`. Two parallel jobs: `backend-test` runs `npm install && npm test` in `backend/`; `extension-test` installs Playwright + Chromium with system deps and runs `xvfb-run npm test` in `extension/` (xvfb is required because extension specs need headed Chrome). The backend job intentionally uses `npm install` rather than `npm ci` — the lock file is generated on Windows, and `vitest@4.x` pulls in `rolldown` with platform-native bindings; Linux CI needs different `@emnapi` versions that are absent from the Windows-generated lock file, which causes `npm ci` to fail.
 
 ## Critical Rules for Claude
 - Never modify code unless explicitly asked
