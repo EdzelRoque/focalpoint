@@ -15,11 +15,9 @@ vi.mock('../data/index.js', () => ({
         incrementOverrideCount: vi.fn(),
     },
     userData: {},
-    classificationData: {},
-}));
-
-vi.mock('../data/classification.js', () => ({
-    clearClassificationCache: vi.fn().mockResolvedValue(undefined),
+    classificationData: {
+        clearClassificationCache: vi.fn().mockResolvedValue(undefined),
+    },
 }));
 
 // Replace auth middleware so tests can inject any userId via a request header.
@@ -126,6 +124,51 @@ describe('IDOR — POST /sessions/:id/block', () => {
             .set('x-test-user-id', USER_A_ID);
 
         expect(res.status).toBe(200);
+    });
+});
+
+describe('404 mapping — "Session not found" from data layer', () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    it('PUT /sessions/:id returns 404 when endSession throws "Session not found"', async () => {
+        sessionData.getSessionById.mockResolvedValue(fakeSession());
+        sessionData.endSession.mockRejectedValue('Session not found');
+
+        const res = await request(buildApp())
+            .put(`/sessions/${SESSION_ID}`)
+            .set('x-test-user-id', USER_A_ID);
+
+        expect(res.status).toBe(404);
+        expect(res.body).toEqual({ error: 'Session not found' });
+    });
+
+    it('POST /sessions/:id/block returns 404 when incrementBlockCount throws "Session not found"', async () => {
+        sessionData.getSessionById.mockResolvedValue(fakeSession());
+        sessionData.incrementBlockCount.mockRejectedValue('Session not found');
+
+        const res = await request(buildApp())
+            .post(`/sessions/${SESSION_ID}/block`)
+            .set('x-test-user-id', USER_A_ID);
+
+        expect(res.status).toBe(404);
+        expect(res.body).toEqual({ error: 'Session not found' });
+    });
+
+    it('POST /sessions/:id/override returns 404 when incrementOverrideCount throws "Session not found"', async () => {
+        sessionData.getSessionById.mockResolvedValue(fakeSession());
+        sessionData.incrementOverrideCount.mockRejectedValue('Session not found');
+
+        const res = await request(buildApp())
+            .post(`/sessions/${SESSION_ID}/override`)
+            .set('x-test-user-id', USER_A_ID)
+            .send({
+                url: 'https://example.com',
+                sessionGoal: 'Test the IDOR fix now',
+                blockSensitivity: 'standard',
+            });
+
+        expect(res.status).toBe(404);
+        expect(res.body).toEqual({ error: 'Session not found' });
     });
 });
 

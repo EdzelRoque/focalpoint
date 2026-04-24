@@ -9,11 +9,11 @@ import {
   validateBlockSensitivity
  } from "../validation.js";
 
-const callClaude = async (url, pageTitle, pageSnippet, sessionGoal, blockSensitivity) => {
-    const client = new Anthropic({
-        apiKey: process.env.ANTHROPIC_API_KEY
-    });
+const client = new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY
+});
 
+const callClaude = async (url, pageTitle, pageSnippet, sessionGoal, blockSensitivity) => {
     let sensitivityInstructions = '';
 
     switch (blockSensitivity) {

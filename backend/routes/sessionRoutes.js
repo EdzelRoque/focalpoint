@@ -1,7 +1,6 @@
 import { Router } from 'express';
-import { sessionData } from '../data/index.js';
+import { sessionData, classificationData } from '../data/index.js';
 import authMiddleware from '../middleware/auth.js';
-import { clearClassificationCache } from '../data/classification.js';
 import {
     validateBlockSensitivity,
     validateId,
@@ -112,6 +111,7 @@ router.route('/sessions/:id')
             const updatedSession = await sessionData.endSession(sessionId);
             return res.json(updatedSession);
         } catch (error) {
+            if (error === 'Session not found') return res.status(404).json({ error: error });
             return res.status(500).json({ error: error });
         }
     });
@@ -142,6 +142,7 @@ router.route('/sessions/:id/block')
             const updatedSession = await sessionData.incrementBlockCount(sessionId);
             return res.json(updatedSession);
         } catch (error) {
+            if (error === 'Session not found') return res.status(404).json({ error: error });
             return res.status(500).json({ error: error });
         }
     });
@@ -178,10 +179,11 @@ router.route('/sessions/:id/override')
             const updatedSession = await sessionData.incrementOverrideCount(sessionId);
 
             // Clear the Redis cache for this URL+goal+blockSensitivity so next visit will auto allow
-            await clearClassificationCache(url, sessionGoal, blockSensitivity);
+            await classificationData.clearClassificationCache(url, sessionGoal, blockSensitivity);
 
             return res.json(updatedSession);
         } catch (error) {
+            if (error === 'Session not found') return res.status(404).json({ error: error });
             return res.status(500).json({ error: error });
         }
     });
