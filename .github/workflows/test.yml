@@ -19,7 +19,7 @@ jobs:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: backend/package-lock.json
-      - run: npm ci
+      - run: npm install
       - run: npm test
 
   extension-test:
