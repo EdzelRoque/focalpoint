@@ -33,7 +33,12 @@ npm run test:watch
 Path alias: `@/` → `frontend/src/`.
 
 ### Extension (`extension/`)
-No build step. Load unpacked in `chrome://extensions` pointed at the `extension/` directory. After editing files, hit the reload icon on the extension card.
+No build step for the runtime code itself — load unpacked in `chrome://extensions` pointed at the `extension/` directory and hit the reload icon after edits. The test harness adds its own `package.json`:
+```
+npm install                      # one-time: installs @playwright/test
+npx playwright install chromium  # one-time: downloads the headed Chromium build
+npm test                         # playwright test — runs the spec suite in extension/tests/
+```
 
 ## Architecture
 
@@ -69,6 +74,7 @@ No build step. Load unpacked in `chrome://extensions` pointed at the `extension/
 - `popup.{html,js,css}` — session start/stop UI, login, stats display.
 - `background.js` — service worker; owns `activeSession` state (in-memory + mirrored to `chrome.storage.local`). All backend calls go through here so the content script never holds the JWT.
 - `content.js` — scrapes page, renders block/override overlay.
+- `tests/` — Playwright specs and the shared `fixtures.js` harness.
 
 ## Conventions worth knowing
 
@@ -77,8 +83,10 @@ No build step. Load unpacked in `chrome://extensions` pointed at the `extension/
 - The `/api/sessions/:id/override` endpoint does double duty: it increments the override counter AND rewrites the Redis cache entry. Don't split those — the cache rewrite is what prevents re-blocking.
 - The Anthropic classifier is prompted to return *only* a JSON object; the parser strips ``` fences defensively. If the model drifts, the fallback is `ALLOW` (fail-open by design — we don't want the extension to accidentally block everything on an API hiccup).
 - There's no shared config for the backend URL: the extension hardcodes it in `background.js`, and the frontend hardcodes it in axios calls. Update both when the backend moves.
-- Backend tests use **vitest + supertest**. Test files live next to the route file they test (`routes/foo.test.js` alongside `routes/foo.js`). Only mock **external** dependencies (MongoDB, Redis, Anthropic API) — their real implementations connect to live services at import time and must never be loaded in tests. Never mock your own application code. For pure middleware tests (CORS, rate limiting) use real Express + supertest with no mocks at all.
-- The three mocks required for session-route tests: `../data/index.js`, `../data/classification.js`, and `../middleware/auth.js`. Auth is bypassed via a mock that reads `req.headers['x-test-user-id']`.
+- Backend tests use **vitest + supertest**. Test files live next to whatever they test — `routes/foo.test.js` alongside `routes/foo.js`, `data/foo.test.js` alongside `data/foo.js`. Only mock **external** dependencies (MongoDB, Redis, Anthropic API) — their real implementations connect to live services at import time and must never be loaded in tests. Never mock your own application code. For pure middleware tests (CORS, rate limiting) use real Express + supertest with no mocks at all.
+- Session-route tests mock `../data/index.js` (covering both `sessionData` and `classificationData`) and `../middleware/auth.js`. Auth is bypassed via a mock that reads `req.headers['x-test-user-id']`. Do not mock `../data/classification.js` directly from route tests — `clearClassificationCache` is exposed through `classificationData` on `data/index.js`.
+- Extension tests use **`@playwright/test`** in `extension/tests/`. They launch real headed Chromium with the unpacked extension loaded — headed mode is non-negotiable, MV3 extensions do not run in Playwright's headless mode. Backend traffic is mocked via `context.route('**/focalpoint-q8r5.onrender.com/**', ...)` — never hit the real backend from specs. Use the shared `seedSession` helper in `extension/tests/fixtures.js` rather than trying to set the background service worker's in-memory state directly: `background.js` runs as an ES module, so module-scoped variables like `activeSession` cannot be assigned via `sw.evaluate()`. `seedSession` works around this by injecting a `session_started` message through `chrome.scripting.executeScript`.
+- CI lives in `.github/workflows/test.yml` and runs on PR and push to `main`. Two parallel jobs: `backend-test` runs `npm test` in `backend/`; `extension-test` installs Playwright + Chromium with system deps and runs `xvfb-run npm test` in `extension/` (xvfb is required because extension specs need headed Chrome).
 
 ## Critical Rules for Claude
 - Never modify code unless explicitly asked
