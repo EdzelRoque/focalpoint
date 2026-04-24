@@ -92,9 +92,7 @@ const injectBlockOverlay = (reason, strictMode) => {
                 This page looks like a distraction
             </h2>
 
-            <p style="font-size: 14px; color: #5a5f6e; line-height: 1.6; margin: 0 0 32px;">
-                ${reason || 'This page does not appear to be related to your current focus goal.'}
-            </p>
+            <p id="fp-reason" style="font-size: 14px; color: #5a5f6e; line-height: 1.6; margin: 0 0 32px;"></p>
 
             <div style="display: flex; gap: 12px; justify-content: center;">
                 <button id="fp-go-back" style="
@@ -115,6 +113,10 @@ const injectBlockOverlay = (reason, strictMode) => {
     `;
 
   document.body.appendChild(overlay);
+
+  // Assign reason as text to prevent any HTML inside the model response from being parsed as markup.
+  document.getElementById('fp-reason').textContent =
+    reason || 'This page does not appear to be related to your current focus goal.';
 
   // Go back button event listener
   document.getElementById('fp-go-back').addEventListener('click', () => {

@@ -85,21 +85,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
                 // Determine the decision based on the backend response, if it indicates block, it will prompt the user to confirm to block or override
                 if (data.decision === "BLOCK") {
-                    await fetch(`${BASE_URL}/api/sessions/${activeSession._id}/block`, {
+                    const blockRes = await fetch(`${BASE_URL}/api/sessions/${activeSession._id}/block`, {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
-                    activeSession.blockCount += 1;
-                    await chrome.storage.local.set({ activeSession }); // Persist the updated session state
 
-                    // Send a message to popup to update the UI stats
-                    chrome.runtime.sendMessage({ 
-                        action: "stats_update",
-                        stats: { 
-                            blockCount: activeSession.blockCount, 
-                            overrideCount: activeSession.overrideCount 
-                        }
-                    });
+                    if (blockRes.ok) {
+                        activeSession.blockCount += 1;
+                        await chrome.storage.local.set({ activeSession }); // Persist the updated session state
+
+                        // Send a message to popup to update the UI stats
+                        chrome.runtime.sendMessage({
+                            action: "stats_update",
+                            stats: {
+                                blockCount: activeSession.blockCount,
+                                overrideCount: activeSession.overrideCount
+                            }
+                        });
+                    } else {
+                        console.warn("Background: block sync failed", blockRes.status);
+                    }
                 }
                 
                 // Send the final decision back to the content script, including strictMode
@@ -148,7 +153,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             return;
           }
 
-          await fetch(
+          const overrideRes = await fetch(
             `${BASE_URL}/api/sessions/${activeSession._id}/override`,
             {
               method: 'POST',
@@ -164,19 +169,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             },
           );
 
-          activeSession.overrideCount += 1;
-          await chrome.storage.local.set({ activeSession }); // Persist the updated session state
+          if (overrideRes.ok) {
+            activeSession.overrideCount += 1;
+            await chrome.storage.local.set({ activeSession }); // Persist the updated session state
 
-          // Send a message to popup to update the UI stats
-          chrome.runtime.sendMessage({
-            action: 'stats_update',
-            stats: {
-              blockCount: activeSession.blockCount,
-              overrideCount: activeSession.overrideCount,
-            },
-          });
+            // Send a message to popup to update the UI stats
+            chrome.runtime.sendMessage({
+              action: 'stats_update',
+              stats: {
+                blockCount: activeSession.blockCount,
+                overrideCount: activeSession.overrideCount,
+              },
+            });
 
-          sendResponse({ status: 'Override logged' });
+            sendResponse({ status: 'Override logged' });
+          } else {
+            console.warn("Background: override sync failed", overrideRes.status);
+            sendResponse({ error: `Override sync failed: ${overrideRes.status}` });
+          }
         } catch (error) {
           sendResponse({ error: error });
         }
