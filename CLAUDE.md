@@ -92,3 +92,8 @@ npm test                         # playwright test — runs the spec suite in ex
 - Never modify code unless explicitly asked
 - Always explain what you're about to do before doing it
 - When writing tests, match the actual current behavior, not assumed behavior
+
+## Planning Rules
+- Before starting any task, read all relevant files first. Resolve ambiguity by reading the code. Only ask clarifying questions if the answer cannot be found in the codebase or CLAUDE.md — and batch questions into one message.
+- For every plan, state what it covers, what it deliberately leaves out, and what risks remain. Do not self-evaluate the plan — give me the tradeoffs and let me decide.
+- If a task involves changes to 4+ files or 3+ distinct areas of the codebase, propose a chunked plan before starting. Group chunks by shared files, testing patterns, or area of the codebase. Explain why items belong together. Otherwise, just start working.
