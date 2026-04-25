@@ -93,7 +93,7 @@ export const classify = async (url, pageTitle, pageSnippet, sessionGoal, blockSe
     blockSensitivity = validateBlockSensitivity(blockSensitivity);
 
     // Check Redis cache for existing classification result
-    const cacheKey = `classify:${crypto.createHash('md5').update(`${url}:${sessionGoal}:${blockSensitivity}`).digest('hex')}`;
+    const cacheKey = `classify:${crypto.createHash('sha256').update(`${url}:${sessionGoal}:${blockSensitivity}`).digest('hex')}`;
     const cached = await redis.get(cacheKey);
     if (cached) {
         const parsed = JSON.parse(cached);
@@ -111,7 +111,7 @@ export const classify = async (url, pageTitle, pageSnippet, sessionGoal, blockSe
 
 // Helper function to clear classification cache for a specific URL and session goal (called when user overrides a block)
 export const clearClassificationCache = async (url, sessionGoal, blockSensitivity) => {
-    const cacheKey = `classify:${crypto.createHash('md5').update(`${url}:${sessionGoal}:${blockSensitivity}`).digest('hex')}`;
+    const cacheKey = `classify:${crypto.createHash('sha256').update(`${url}:${sessionGoal}:${blockSensitivity}`).digest('hex')}`;
     await redis.del(cacheKey);
 
     // Set the new cache value to ALLOW with reason "User override - cache cleared" so that the user can visit the same site again without getting blocked
