@@ -96,6 +96,8 @@ export const getSessionById = async (sessionId) => {
     const session = await sessionCollection.findOne({ _id: new ObjectId(sessionId) });
     if (!session) throw 'Session not found';
 
+    session._id = session._id.toString();
+    session.userId = session.userId.toString();
     return session;
 };
 
