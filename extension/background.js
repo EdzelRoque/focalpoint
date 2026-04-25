@@ -2,20 +2,43 @@
 const BASE_URL = 'https://focalpoint-q8r5.onrender.com';
 let activeSession = null;
 
-
-// Implement initialization logic
-const init = async () => {
+// chrome.storage.local is the source of truth for activeSession. Lazy
+// read-through cache; storage wins on conflict.
+const getActiveSession = async () => {
+    if (activeSession) return activeSession;
     try {
-        const data = await chrome.storage.local.get(["activeSession"]);
-        if (data.activeSession) {
-            activeSession = data.activeSession;
-        }
+        const data = await chrome.storage.local.get(['activeSession']);
+        if (data.activeSession) activeSession = data.activeSession;
     } catch (err) {
-        console.error("Background: Error loading active session from storage", err);
+        console.error('Background: Error loading active session from storage', err);
     }
+    return activeSession;
 };
 
-init();
+// Keep the in-memory cache in sync with storage writes from any source
+// (popup.js writes, logout clear, our own block/override increments).
+chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'local') return;
+    if (!('activeSession' in changes)) return;
+    activeSession = changes.activeSession.newValue ?? null;
+});
+
+// init() is no longer needed: getActiveSession() reads chrome.storage.local
+// lazily on demand, and chrome.storage.onChanged keeps the in-memory cache
+// in sync afterward. Previously this pre-warmed the cache at SW startup, but
+// it raced with cold-wake events (the listener could fire before the await
+// resolved) and gave a false sense of safety.
+// const init = async () => {
+//     try {
+//         const data = await chrome.storage.local.get(["activeSession"]);
+//         if (data.activeSession) {
+//             activeSession = data.activeSession;
+//         }
+//     } catch (err) {
+//         console.error("Background: Error loading active session from storage", err);
+//     }
+// };
+// init();
 
 
 // Add event listeners for messages from popup.js or content.js (For classification of new tabs)
@@ -31,20 +54,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     if (message.action === "classify_page") {
-        if (!activeSession) {
-            sendResponse({ error: "No active session" });
-            return;
-        }
-
         // Get the URL, pageTitle, and pageSnippet from the message payload
         const payload = message.payload;
         const url = payload.url;
         const pageTitle = payload.pageTitle;
         const pageSnippet = payload.pageSnippet;
-        // Extract from activeSession
-        const sessionGoal = activeSession.sessionGoal;
-        const blockSensitivity = activeSession.blockSensitivity;
-        const strictMode = activeSession.strictMode;
 
         // Validate the payload
         if (!url || !pageTitle || !pageSnippet) {
@@ -55,6 +69,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // Call the backend classification API with the provided data
         const processClassification = async () => {
             try {
+                const session = await getActiveSession();
+                if (!session) {
+                    sendResponse({ error: "No active session" });
+                    return;
+                }
+
+                const sessionGoal = session.sessionGoal;
+                const blockSensitivity = session.blockSensitivity;
+                const strictMode = session.strictMode;
+
                 // Load token from storage to authenticate the request
                 const { token } = await chrome.storage.local.get("token");
                 if (!token) {
@@ -64,13 +88,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
                 const res = await fetch(`${BASE_URL}/api/classify`, {
                     method: 'POST',
-                    headers: { 
+                    headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({ 
-                        url: url, 
-                        pageTitle: pageTitle, 
+                    body: JSON.stringify({
+                        url: url,
+                        pageTitle: pageTitle,
                         pageSnippet: pageSnippet,
                         sessionGoal: sessionGoal,
                         blockSensitivity: blockSensitivity
@@ -85,7 +109,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
                 // Determine the decision based on the backend response, if it indicates block, it will prompt the user to confirm to block or override
                 if (data.decision === "BLOCK") {
-                    const blockRes = await fetch(`${BASE_URL}/api/sessions/${activeSession._id}/block`, {
+                    const blockRes = await fetch(`${BASE_URL}/api/sessions/${session._id}/block`, {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
@@ -123,18 +147,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     if (message.action === 'override_page') {
-      // Necessary for background.js
-      if (!activeSession) {
-        sendResponse({ error: 'No active session' });
-        return;
-      }
-
       // Get the URL from the message payload
       const payload = message.payload;
       const url = payload.url;
-      // Extra from activeSession
-      const sessionGoal = activeSession.sessionGoal;
-      const blockSensitivity = activeSession.blockSensitivity;
 
       // Validate the payload
       if (!url) {
@@ -145,16 +160,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // Call the backend override API to log the override action
       const processOverride = async () => {
         try {
+          const session = await getActiveSession();
+          if (!session) {
+            sendResponse({ error: 'No active session' });
+            return;
+          }
+
+          const sessionGoal = session.sessionGoal;
+          const blockSensitivity = session.blockSensitivity;
+
           // Load token from storage to authenticate the request
           const { token } = await chrome.storage.local.get('token');
-          // Necessary for background.js
           if (!token) {
             sendResponse({ error: 'Not authenticated' });
             return;
           }
 
           const overrideRes = await fetch(
-            `${BASE_URL}/api/sessions/${activeSession._id}/override`,
+            `${BASE_URL}/api/sessions/${session._id}/override`,
             {
               method: 'POST',
               headers: {
@@ -207,7 +230,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // 1. Listen for when the user switches to a different, already-open tab
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
-    if (!activeSession) return; // Don't track if no session is active
+    const session = await getActiveSession();
+    if (!session) return; // Don't track if no session is active
 
     try {
         await chrome.tabs.sendMessage(activeInfo.tabId, { action: "tab_change" });
@@ -218,7 +242,8 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 
 // 2. Listen for when a URL changes inside the SAME tab (SPAs)
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  if (!activeSession) return;
+  const session = await getActiveSession();
+  if (!session) return;
 
   // SPAs update the URL without changing the document status to 'complete'
   if (changeInfo.url) {
