@@ -122,3 +122,5 @@ For every testable change, follow this sequence strictly — no skipping steps:
 - Before starting any task, read all relevant files first. Resolve ambiguity by reading the code. Only ask clarifying questions if the answer cannot be found in the codebase or CLAUDE.md — and batch questions into one message.
 - For every plan, state what it covers, what it deliberately leaves out, and what risks remain. Do not self-evaluate the plan — give me the tradeoffs and let me decide.
 - If a task involves changes to 4+ files or 3+ distinct areas of the codebase, propose a chunked plan before starting. Group chunks by shared files, testing patterns, or area of the codebase. Explain why items belong together. Otherwise, just start working.
+- For chunked plans, write a high-level overview of all chunks first. Expand each chunk into a detailed step-by-step just-in-time — right before executing that chunk, not all upfront. The detail will go stale otherwise.
+- Execute chunks sequentially: open PR → review (via the `pr-review` skill) → merge → start the next chunk. Do not stack multiple chunk PRs simultaneously.
