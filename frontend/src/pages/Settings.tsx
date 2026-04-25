@@ -46,7 +46,7 @@ const Field = ({
   hint,
   children,
 }: {
-  label: string;
+  label: React.ReactNode;
   hint?: string;
   children: React.ReactNode;
 }) => (
@@ -62,15 +62,21 @@ const Field = ({
 const Toggle = ({
   checked,
   onChange,
+  disabled = false,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
+  disabled?: boolean;
 }) => (
   <button
-    onClick={() => onChange(!checked)}
+    type="button"
+    disabled={disabled}
+    onClick={() => {
+      if (!disabled) onChange(!checked);
+    }}
     className={`relative h-5 w-9 rounded-full transition-colors ${
       checked ? 'bg-primary' : 'bg-border'
-    }`}
+    } ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
   >
     <span
       className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
@@ -207,8 +213,18 @@ const Settings = () => {
             title="Notifications"
             description="Control what we send you"
           >
-            <Field label="Weekly report" hint="Email summary every Sunday">
-              <Toggle checked={weeklyReport} onChange={setWeeklyReport} />
+            <Field
+              label={
+                <>
+                  Weekly report
+                  <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Coming soon
+                  </span>
+                </>
+              }
+              hint="Email summary every Sunday"
+            >
+              <Toggle checked={weeklyReport} onChange={setWeeklyReport} disabled />
             </Field>
           </Section>
 
