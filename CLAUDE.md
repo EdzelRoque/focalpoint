@@ -72,7 +72,7 @@ npm test                         # playwright test — runs the spec suite in ex
 ### Extension layout
 - `manifest.json` — MV3, permissions: `storage`, `tabs`, `scripting`; host permissions include `<all_urls>` and the Render backend.
 - `popup.{html,js,css}` — session start/stop UI, login, stats display.
-- `background.js` — service worker; owns `activeSession` state (in-memory + mirrored to `chrome.storage.local`). All backend calls go through here so the content script never holds the JWT.
+- `background.js` — service worker. **`chrome.storage.local` is the source of truth for `activeSession`**; the module-scoped variable is a lazy read-through cache kept in sync via a `chrome.storage.onChanged` listener. Always read through `getActiveSession()` (never the bare variable) — reading the bare variable hits a cold-wake race because the SW re-evaluates the file on every wake and event handlers can fire before any startup `await chrome.storage.local.get` resolves. All backend calls go through here so the content script never holds the JWT.
 - `content.js` — scrapes page, renders block/override overlay.
 - `tests/` — Playwright specs and the shared `fixtures.js` harness.
 
