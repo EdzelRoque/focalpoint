@@ -88,6 +88,23 @@ npm test                         # playwright test â€” runs the spec suite 
 - Extension tests use **`@playwright/test`** in `extension/tests/`. They launch real headed Chromium with the unpacked extension loaded â€” headed mode is non-negotiable, MV3 extensions do not run in Playwright's headless mode. Backend traffic is mocked via `context.route('**/focalpoint-q8r5.onrender.com/**', ...)` â€” never hit the real backend from specs. Use the shared `seedSession` helper in `extension/tests/fixtures.js` rather than trying to set the background service worker's in-memory state directly: `background.js` runs as an ES module, so module-scoped variables like `activeSession` cannot be assigned via `sw.evaluate()`. `seedSession` works around this by injecting a `session_started` message through `chrome.scripting.executeScript`.
 - CI lives in `.github/workflows/test.yml` and runs on PR and push to `main`. Two parallel jobs: `backend-test` runs `npm install && npm test` in `backend/`; `extension-test` installs Playwright + Chromium with system deps and runs `xvfb-run npm test` in `extension/` (xvfb is required because extension specs need headed Chrome). The backend job intentionally uses `npm install` rather than `npm ci` â€” the lock file is generated on Windows, and `vitest@4.x` pulls in `rolldown` with platform-native bindings; Linux CI needs different `@emnapi` versions that are absent from the Windows-generated lock file, which causes `npm ci` to fail.
 
+## TDD Workflow
+
+For every testable change, follow this sequence strictly — no skipping steps:
+
+1. **Write the failing test first.** Show the test and confirm it fails before touching implementation.
+2. **Show the failure output.** Paste the actual error so we both know the test is failing for the right reason.
+3. **Write the minimum implementation to make it pass.** No extra changes.
+4. **Show the passing output.** Confirm the test goes green.
+5. **Ask before moving to the next item.** Never chain fixes without a checkpoint.
+
+**When NOT to test:** Startup crash guards and behaviors that can't be meaningfully unit tested get a diff review + explanation instead. Knowing when not to test is a professional skill — don't force it.
+
+**Mock discipline:**
+- Only mock external dependencies (MongoDB, Redis, Anthropic API).
+- Never mock your own application code.
+- For pure middleware tests, use real Express + supertest with zero mocks.
+
 ## Critical Rules for Claude
 - Never modify code unless explicitly asked
 - Always explain what you're about to do before doing it
