@@ -20,6 +20,7 @@ vi.mock('../config/mongoCollections.js', () => ({
 const {
     createSession,
     endSession,
+    getSessionById,
     getSessionsByUserId,
     incrementBlockCount,
     incrementOverrideCount,
@@ -100,6 +101,26 @@ describe('#10 — active-session guard in createSession', () => {
         expect(sessionsCollection.insertOne).toHaveBeenCalledOnce();
         expect(result._id).toBe(insertedId.toString());
         expect(result.isActive).toBe(true);
+    });
+});
+
+describe('#15 — getSessionById return shape', () => {
+    it('serializes _id and userId to strings (matches getSessionsByUserId)', async () => {
+        const idObj = new ObjectId(SESSION_ID);
+        const userObj = new ObjectId(USER_ID);
+        sessionsCollection.findOne.mockResolvedValue({
+            _id: idObj,
+            userId: userObj,
+            sessionGoal: 'Focus',
+            isActive: true,
+        });
+
+        const result = await getSessionById(SESSION_ID);
+
+        expect(typeof result._id).toBe('string');
+        expect(typeof result.userId).toBe('string');
+        expect(result._id).toBe(SESSION_ID);
+        expect(result.userId).toBe(USER_ID);
     });
 });
 

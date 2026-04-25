@@ -43,6 +43,22 @@ const validArgs = () => [
     'standard',
 ];
 
+describe('#18 — classification cache key uses sha256', () => {
+    it('passes a sha256-shaped key (classify:<64 hex chars>) to redis.get', async () => {
+        redisGet.mockResolvedValue(null);
+        redisSet.mockResolvedValue('OK');
+        messagesCreate.mockResolvedValue({
+            content: [{ text: '{"decision":"ALLOW","reason":"ok"}' }],
+        });
+
+        await classify(...validArgs());
+
+        expect(redisGet).toHaveBeenCalledTimes(1);
+        const key = redisGet.mock.calls[0][0];
+        expect(key).toMatch(/^classify:[a-f0-9]{64}$/);
+    });
+});
+
 describe('#6 — Anthropic client is instantiated at module scope, not per request', () => {
     it('constructs the Anthropic client at most once across multiple classify cache-miss calls', async () => {
         // Force cache miss both times

@@ -96,6 +96,7 @@ const validatePageTitle = (title) => {
 const validatePageSnippet = (snippet) => {
     snippet = validateString(snippet, 'Page Snippet');
     if (snippet.length < 5) throw 'Page snippet must be at least 5 characters long';
+    if (snippet.length > 2000) throw 'Page snippet must be at most 2000 characters long';
     return snippet;
 };
 
