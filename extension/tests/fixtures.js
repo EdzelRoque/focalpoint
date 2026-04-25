@@ -141,6 +141,23 @@ export const seedSession = async (serviceWorker, page, overrides = {}) => {
     return session;
 };
 
+/**
+ * Seed only chrome.storage.local with a token + session. Deliberately does NOT
+ * send a `session_started` runtime message, so background.js's in-memory
+ * `activeSession` stays whatever it was. Used to reproduce the cold-wake race
+ * where the tab handler runs before init()/session_started populates memory.
+ */
+export const seedSessionViaStorageOnly = async (serviceWorker, overrides = {}) => {
+    const session = { ...defaultSession(), ...overrides };
+    await serviceWorker.evaluate(async ({ session }) => {
+        await chrome.storage.local.set({
+            token: 'fake-jwt-for-tests',
+            activeSession: session,
+        });
+    }, { session });
+    return session;
+};
+
 export const readActiveSession = async (serviceWorker) => {
     return serviceWorker.evaluate(async () => {
         const { activeSession } = await chrome.storage.local.get('activeSession');
