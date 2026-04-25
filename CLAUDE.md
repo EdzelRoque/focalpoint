@@ -96,7 +96,6 @@ For every testable change, follow this sequence strictly — no skipping steps:
 2. **Show the failure output.** Paste the actual error so we both know the test is failing for the right reason.
 3. **Write the minimum implementation to make it pass.** No extra changes.
 4. **Show the passing output.** Confirm the test goes green.
-5. **Ask before moving to the next item.** Never chain fixes without a checkpoint.
 
 **When NOT to test:** Startup crash guards and behaviors that can't be meaningfully unit tested get a diff review + explanation instead. Knowing when not to test is a professional skill — don't force it.
 
