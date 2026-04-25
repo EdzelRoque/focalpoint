@@ -113,6 +113,11 @@ For every testable change, follow this sequence strictly — no skipping steps:
 - For trivial, non-app changes (docs, CLAUDE.md, README, config files, skill files) — skip the branch/PR flow. Commit directly on main and push. No PR needed.
 - Use the full branch → commit → PR flow for anything that touches application code, tests, routes, data layer, frontend, or the extension.
 
+## Skill Usage Rules
+- Use the `git-commit` skill (via the Skill tool) for commits — do not run `git commit` directly.
+- Use the `pr-review` skill for PR reviews — do not improvise a review.
+- `gh pr create` is fine for opening PRs unless a `git-commit` skill flow covers it.
+
 ## Planning Rules
 - Before starting any task, read all relevant files first. Resolve ambiguity by reading the code. Only ask clarifying questions if the answer cannot be found in the codebase or CLAUDE.md — and batch questions into one message.
 - For every plan, state what it covers, what it deliberately leaves out, and what risks remain. Do not self-evaluate the plan — give me the tradeoffs and let me decide.
