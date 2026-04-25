@@ -20,6 +20,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import DashboardLayout from '@/components/DashboardLayout';
+import { getWeekBounds } from '@/lib/weekBounds';
 
 const StatCard = ({
   icon: Icon,
@@ -71,7 +72,13 @@ const Dashboard = () => {
   // Setup an object to hold the chart data for each day
   const dayMap = { Sun: 0, Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0 };
 
-  sessions.forEach((session) => {
+  const { start: weekStart, end: weekEnd } = getWeekBounds(new Date());
+  const thisWeek = sessions.filter((s) => {
+    const t = new Date(s.startTime);
+    return t >= weekStart && t < weekEnd;
+  });
+
+  thisWeek.forEach((session) => {
     totalBlocks += session.blockCount || 0;
     totalOverrides += session.overrideCount || 0;
 
@@ -136,7 +143,7 @@ const Dashboard = () => {
           <StatCard
             icon={Target}
             label="Sessions"
-            value={sessions.length.toString()}
+            value={thisWeek.length.toString()}
           />
           <StatCard
             icon={TrendingUp} // You could change this import to AlertTriangle for overrides
