@@ -100,42 +100,23 @@ export const mockOverrideEndpoint = async (context, { status = 200 } = {}) => {
 };
 
 /**
- * Seed the extension's storage with a fake token and active session, and wake
- * the service worker's in-memory `activeSession` by injecting a session_started
- * message from a content script running on the given page.
+ * Seed the extension's storage with a fake token and active session.
  *
- * The SW's in-memory state is module-scoped and can't be poked directly via
- * sw.evaluate(). Instead we use chrome.scripting.executeScript to run code in
- * the content-script world, where chrome.runtime.sendMessage works and will
- * route to the SW's own onMessage listener.
+ * chrome.storage.local is the source of truth for activeSession; background.js
+ * reads through getActiveSession() and a chrome.storage.onChanged listener
+ * keeps its in-memory cache in sync, so writing to storage is sufficient.
  */
 export const seedSession = async (serviceWorker, page, overrides = {}) => {
     const session = { ...defaultSession(), ...overrides };
-    const pageUrl = page.url();
 
-    await serviceWorker.evaluate(
-        async ({ session, pageUrl }) => {
-            await chrome.storage.local.set({
-                token: 'fake-jwt-for-tests',
-                activeSession: session,
-            });
+    await serviceWorker.evaluate(async ({ session }) => {
+        await chrome.storage.local.set({
+            token: 'fake-jwt-for-tests',
+            activeSession: session,
+        });
+    }, { session });
 
-            const tabs = await chrome.tabs.query({});
-            const tab = tabs.find((t) => t.url === pageUrl);
-            if (!tab) throw new Error(`Tab not found for url ${pageUrl}`);
-
-            await chrome.scripting.executeScript({
-                target: { tabId: tab.id },
-                func: async (s) => {
-                    await chrome.runtime.sendMessage({ action: 'session_started', session: s });
-                },
-                args: [session],
-            });
-        },
-        { session, pageUrl },
-    );
-
-    // Small settle delay so the SW processes the message before the next action.
+    // Small settle delay so the SW's onChanged listener fires before the next action.
     await page.waitForTimeout(150);
 
     return session;
