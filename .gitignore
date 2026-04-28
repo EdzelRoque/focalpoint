@@ -21,5 +21,6 @@ Desktop.ini
 logs/
 
 # Internal planning docs — not for public repo
-TODO.md
+TODO/
+HANDOFF.md
 implementation specs/
