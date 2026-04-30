@@ -158,10 +158,9 @@ describe('#2.1 — createSession snapshots user.preferences.blockSensitivity and
         expect(insertedDoc.blockSensitivity).toBe('strict');
         expect(insertedDoc.strictMode).toBe(true);
 
-        // Sweep A (#2.9, partial): returned _id is a string. userId is NOT
-        // currently stringified in createSession's return (TODO row 2.9 ⚠);
-        // that's a production-code gap, deferred as a follow-up after this slice.
+        // #2.9: both _id and userId must be returned as strings, not ObjectId.
         expect(typeof result._id).toBe('string');
+        expect(typeof result.userId).toBe('string');
 
         // Sweep C (#2.3, null branch): no duration supplied -> expectedEndTime is null.
         expect(insertedDoc.expectedEndTime).toBeNull();
