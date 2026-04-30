@@ -70,6 +70,19 @@ describe('#7 — matchedCount guards', () => {
 
         await expect(endSession(SESSION_ID)).rejects.toBe('Session not found');
     });
+
+    // Sweep B (#2.6, "already ended" branch): findOne returns a session with
+    // isActive:false -> endSession rejects before touching updateOne.
+    it('endSession throws "Session is already ended" when the session is inactive', async () => {
+        sessionsCollection.findOne.mockResolvedValue({
+            _id: new ObjectId(SESSION_ID),
+            userId: new ObjectId(USER_ID),
+            isActive: false,
+        });
+
+        await expect(endSession(SESSION_ID)).rejects.toBe('Session is already ended');
+        expect(sessionsCollection.updateOne).not.toHaveBeenCalled();
+    });
 });
 
 describe('#10 — active-session guard in createSession', () => {
@@ -121,6 +134,37 @@ describe('#15 — getSessionById return shape', () => {
         expect(typeof result.userId).toBe('string');
         expect(result._id).toBe(SESSION_ID);
         expect(result.userId).toBe(USER_ID);
+    });
+});
+
+describe('#2.1 — createSession snapshots user.preferences.blockSensitivity and strictMode onto the session', () => {
+    it('writes the user\'s current preferences onto the inserted session document', async () => {
+        // No existing active session.
+        sessionsCollection.findOne.mockResolvedValue(null);
+        // Distinctive non-default values so a regression that hardcodes defaults
+        // ('standard' / false) would be caught.
+        usersCollection.findOne.mockResolvedValue({
+            _id: new ObjectId(USER_ID),
+            preferences: { blockSensitivity: 'strict', strictMode: true },
+        });
+        const insertedId = new ObjectId();
+        sessionsCollection.insertOne.mockResolvedValue({ acknowledged: true, insertedId });
+
+        const result = await createSession(USER_ID, 'Deep focused work');
+
+        // Behavioral assertion: the document handed to Mongo carries the user's prefs.
+        expect(sessionsCollection.insertOne).toHaveBeenCalledOnce();
+        const insertedDoc = sessionsCollection.insertOne.mock.calls[0][0];
+        expect(insertedDoc.blockSensitivity).toBe('strict');
+        expect(insertedDoc.strictMode).toBe(true);
+
+        // Sweep A (#2.9, partial): returned _id is a string. userId is NOT
+        // currently stringified in createSession's return (TODO row 2.9 ⚠);
+        // that's a production-code gap, deferred as a follow-up after this slice.
+        expect(typeof result._id).toBe('string');
+
+        // Sweep C (#2.3, null branch): no duration supplied -> expectedEndTime is null.
+        expect(insertedDoc.expectedEndTime).toBeNull();
     });
 });
 
