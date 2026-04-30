@@ -28,7 +28,7 @@ vi.mock('../middleware/auth.js', () => ({
     },
 }));
 
-import { sessionData } from '../data/index.js';
+import { sessionData, classificationData } from '../data/index.js';
 import sessionRouter from './sessionRoutes.js';
 
 function buildApp() {
@@ -203,5 +203,33 @@ describe('IDOR — POST /sessions/:id/override', () => {
             .send(overrideBody);
 
         expect(res.status).toBe(200);
+    });
+});
+
+describe('#3.9 — POST /sessions/:id/override calls clearClassificationCache(url, goal, sensitivity)', () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    it('invokes clearClassificationCache exactly once with the body url/goal/sensitivity after a successful override', async () => {
+        sessionData.getSessionById.mockResolvedValue(fakeSession());
+        sessionData.incrementOverrideCount.mockResolvedValue({ ...fakeSession(), overrideCount: 1 });
+
+        const overrideBody = {
+            url: 'https://example.com/specific-page',
+            sessionGoal: 'Research the cache rewrite contract',
+            blockSensitivity: 'strict',
+        };
+
+        const res = await request(buildApp())
+            .post(`/sessions/${SESSION_ID}/override`)
+            .set('x-test-user-id', USER_A_ID)
+            .send(overrideBody);
+
+        expect(res.status).toBe(200);
+        expect(classificationData.clearClassificationCache).toHaveBeenCalledTimes(1);
+        expect(classificationData.clearClassificationCache).toHaveBeenCalledWith(
+            overrideBody.url,
+            overrideBody.sessionGoal,
+            overrideBody.blockSensitivity,
+        );
     });
 });
