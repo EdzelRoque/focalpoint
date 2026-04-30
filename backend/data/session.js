@@ -56,7 +56,8 @@ export const createSession = async (userId, sessionGoal, durationInMinutes=null)
 
     return {
         _id: insertInfo.insertedId.toString(),
-        ...newSession
+        ...newSession,
+        userId: userId,
     };
 };
 
