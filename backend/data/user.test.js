@@ -66,6 +66,117 @@ describe('#1.5 — login fails uniformly for unknown email vs wrong password (no
     });
 });
 
+describe('#1.2 — register throws specific strings on duplicates', () => {
+    it('throws "Username is already taken" when the username already exists', async () => {
+        usersCollection.findOne.mockImplementation(async (query) => {
+            if (query.username) {
+                return { _id: new ObjectId(), username: query.username };
+            }
+            return null;
+        });
+
+        await expect(register('alice', 'alice@example.com', 'P@ssw0rd!')).rejects.toBe('Username is already taken');
+    });
+
+    it('throws "Email is already registered" when the email already exists but the username is free', async () => {
+        usersCollection.findOne.mockImplementation(async (query) => {
+            if (query.email) {
+                return { _id: new ObjectId(), email: query.email };
+            }
+            return null;
+        });
+
+        await expect(register('alice', 'alice@example.com', 'P@ssw0rd!')).rejects.toBe('Email is already registered');
+    });
+});
+
+describe('#1.3 — register applies default preferences to new users', () => {
+    it('inserts and returns preferences { blockSensitivity: "standard", strictMode: false }', async () => {
+        usersCollection.findOne.mockResolvedValue(null);
+
+        let captured;
+        usersCollection.insertOne.mockImplementation(async (doc) => {
+            captured = doc;
+            return { acknowledged: true, insertedId: new ObjectId() };
+        });
+
+        const result = await register('alice', 'alice@example.com', 'P@ssw0rd!');
+
+        expect(captured.preferences).toEqual({ blockSensitivity: 'standard', strictMode: false });
+        expect(result.preferences).toEqual({ blockSensitivity: 'standard', strictMode: false });
+        // 1.12 root cause: stored email is lowercased so login's lowercase lookup hits.
+        expect(captured.email).toBe(captured.email.toLowerCase());
+    });
+});
+
+describe('#1.10 — updateUserSettings excludes self via $ne when checking uniqueness', () => {
+    it('does not throw when User A resubmits their own current username and email', async () => {
+        const USER_A_ID = new ObjectId();
+        const userA = { _id: USER_A_ID, username: 'alice', email: 'alice@example.com' };
+
+        // Smart mock simulating Mongo's $ne semantics: returns the matching record
+        // ONLY when its _id does NOT equal the value passed in $ne. If $ne points at
+        // the same user (i.e. self-exclusion is correctly applied), findOne returns null.
+        usersCollection.findOne.mockImplementation(async (query) => {
+            const matchesUsername = query.username === userA.username;
+            const matchesEmail = query.email === userA.email;
+            if (!matchesUsername && !matchesEmail) return null;
+
+            const ne = query._id?.$ne;
+            if (ne && ne.toHexString() === USER_A_ID.toHexString()) return null;
+            return userA;
+        });
+        usersCollection.updateOne.mockResolvedValue({ acknowledged: true, matchedCount: 1, modifiedCount: 1 });
+
+        await expect(
+            updateUserSettings(USER_A_ID.toHexString(), 'alice', 'alice@example.com', 'standard', false)
+        ).resolves.toBeDefined();
+    });
+
+    it('throws "Username is already taken" when a different user already holds it', async () => {
+        const USER_A_ID = new ObjectId();
+        const SOME_OTHER_USER_ID = new ObjectId();
+
+        usersCollection.findOne.mockImplementation(async (query) => {
+            if (query.username === 'taken-name') {
+                return { _id: SOME_OTHER_USER_ID, username: 'taken-name' };
+            }
+            return null;
+        });
+
+        await expect(
+            updateUserSettings(USER_A_ID.toHexString(), 'taken-name', 'alice@example.com', 'standard', false)
+        ).rejects.toBe('Username is already taken');
+    });
+});
+
+describe('#1.12 — login looks up the user by lowercased email (case-insensitive)', () => {
+    it('finds the stored record when called with mixed-case email', async () => {
+        const realHash = await bcrypt.hash('P@ssw0rd!', 4);
+        const STORED_EMAIL = 'foo@example.com';
+
+        // Smart mock: returns the user only when the query email is lowercased.
+        // If anywhere in the chain (validateEmail → findOne) drops the lowercase,
+        // findOne returns null → login throws "Invalid email or password" → test fails.
+        usersCollection.findOne.mockImplementation(async (query) => {
+            if (query.email === STORED_EMAIL) {
+                return {
+                    _id: new ObjectId(),
+                    username: 'foo',
+                    email: STORED_EMAIL,
+                    password: realHash,
+                    preferences: { blockSensitivity: 'standard', strictMode: false },
+                };
+            }
+            return null;
+        });
+
+        const result = await login('Foo@Example.COM', 'P@ssw0rd!');
+
+        expect(result.email).toBe(STORED_EMAIL);
+    });
+});
+
 describe('#1.11 — updateUserSettings writes only username, email, and preferences (no mass assignment)', () => {
     it('writes a $set with exactly username/email/preferences and never includes password', async () => {
         const userId = new ObjectId().toHexString();
