@@ -104,6 +104,8 @@ describe('#1.3 — register applies default preferences to new users', () => {
 
         expect(captured.preferences).toEqual({ blockSensitivity: 'standard', strictMode: false });
         expect(result.preferences).toEqual({ blockSensitivity: 'standard', strictMode: false });
+        // 1.12 root cause: stored email is lowercased so login's lowercase lookup hits.
+        expect(captured.email).toBe(captured.email.toLowerCase());
     });
 });
 
@@ -129,6 +131,22 @@ describe('#1.10 — updateUserSettings excludes self via $ne when checking uniqu
         await expect(
             updateUserSettings(USER_A_ID.toHexString(), 'alice', 'alice@example.com', 'standard', false)
         ).resolves.toBeDefined();
+    });
+
+    it('throws "Username is already taken" when a different user already holds it', async () => {
+        const USER_A_ID = new ObjectId();
+        const SOME_OTHER_USER_ID = new ObjectId();
+
+        usersCollection.findOne.mockImplementation(async (query) => {
+            if (query.username === 'taken-name') {
+                return { _id: SOME_OTHER_USER_ID, username: 'taken-name' };
+            }
+            return null;
+        });
+
+        await expect(
+            updateUserSettings(USER_A_ID.toHexString(), 'taken-name', 'alice@example.com', 'standard', false)
+        ).rejects.toBe('Username is already taken');
     });
 });
 
