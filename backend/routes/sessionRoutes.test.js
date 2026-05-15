@@ -299,7 +299,6 @@ describe('#2.10 — Malformed :id returns 400 across all session sub-routes', ()
         expect(sessionData[dataFn]).not.toHaveBeenCalled();
     });
 
-    // Sweep E: GET /sessions with malformed token-userId (the validateId(req.user.userId) path).
     it('GET /sessions returns 400 when the token-userId is malformed', async () => {
         const res = await request(buildApp())
             .get('/sessions')
