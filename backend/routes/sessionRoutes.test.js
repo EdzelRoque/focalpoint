@@ -233,3 +233,79 @@ describe('#3.9 — POST /sessions/:id/override calls clearClassificationCache(ur
         );
     });
 });
+
+describe('#2.10 — POST /sessions returns 400 and never reaches the data layer on bad input', () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    it.each([
+        ['empty body', {}],
+        ['missing sessionGoal', { durationInMinutes: 30 }],
+        ['non-numeric durationInMinutes', { sessionGoal: 'A valid focus goal', durationInMinutes: 'thirty' }],
+    ])('rejects %s with 400 and skips createSession', async (_label, body) => {
+        const res = await request(buildApp())
+            .post('/sessions')
+            .set('x-test-user-id', USER_A_ID)
+            .send(body);
+
+        expect(res.status).toBe(400);
+        expect(sessionData.createSession).not.toHaveBeenCalled();
+    });
+});
+
+describe('#2.10 — POST /sessions/:id/override returns 400 and skips both data-layer and cache-clear on bad input', () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    const validBody = {
+        url: 'https://example.com',
+        sessionGoal: 'A valid focus goal',
+        blockSensitivity: 'standard',
+    };
+
+    it.each([
+        ['empty body', {}],
+        ['bad url protocol', { ...validBody, url: 'ftp://example.com' }],
+        ['sessionGoal under 10 chars', { ...validBody, sessionGoal: 'short' }],
+        ['invalid blockSensitivity', { ...validBody, blockSensitivity: 'aggressive' }],
+    ])('rejects %s with 400', async (_label, body) => {
+        const res = await request(buildApp())
+            .post(`/sessions/${SESSION_ID}/override`)
+            .set('x-test-user-id', USER_A_ID)
+            .send(body);
+
+        expect(res.status).toBe(400);
+        expect(sessionData.incrementOverrideCount).not.toHaveBeenCalled();
+        expect(classificationData.clearClassificationCache).not.toHaveBeenCalled();
+    });
+});
+
+describe('#2.10 — Malformed :id returns 400 across all session sub-routes', () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    const overrideBody = {
+        url: 'https://example.com',
+        sessionGoal: 'A valid focus goal',
+        blockSensitivity: 'standard',
+    };
+
+    it.each([
+        ['PUT /sessions/:id', 'put', '/sessions/not-a-hex', null, 'endSession'],
+        ['POST /sessions/:id/override', 'post', '/sessions/not-a-hex/override', overrideBody, 'incrementOverrideCount'],
+    ])('rejects %s with 400 and never calls the data layer', async (_label, method, path, body, dataFn) => {
+        let req = request(buildApp())[method](path).set('x-test-user-id', USER_A_ID);
+        if (body) req = req.send(body);
+        const res = await req;
+
+        expect(res.status).toBe(400);
+        expect(sessionData[dataFn]).not.toHaveBeenCalled();
+    });
+
+    // Sweep E: GET /sessions with malformed token-userId (the validateId(req.user.userId) path).
+    it('GET /sessions returns 400 when the token-userId is malformed', async () => {
+        const res = await request(buildApp())
+            .get('/sessions')
+            .set('x-test-user-id', 'not-a-hex');
+
+        expect(res.status).toBe(400);
+        expect(sessionData.getSessionsByUserId).not.toHaveBeenCalled();
+    });
+});

@@ -34,6 +34,29 @@ beforeEach(() => {
     process.env.JWT_SECRET = 'test-secret';
 });
 
+describe('#1.2 — POST /auth/register maps duplicate strings to 409 (and other errors to 500)', () => {
+    const validBody = {
+        username: 'alice',
+        email: 'alice@example.com',
+        password: 'P@ssw0rd!',
+    };
+
+    it.each([
+        ['Username is already taken', 409],
+        ['Email is already registered', 409],
+        ['Database failure', 500],
+    ])('maps "%s" thrown by userData.register to %s', async (thrown, expectedStatus) => {
+        userData.register.mockRejectedValue(thrown);
+
+        const res = await request(buildApp())
+            .post('/auth/register')
+            .send(validBody);
+
+        expect(res.status).toBe(expectedStatus);
+        expect(res.body).toEqual({ error: thrown });
+    });
+});
+
 describe('#1.4 — POST /auth/login returns a JWT signed with JWT_SECRET, containing userId, expiring in ~7 days', () => {
     it('returns a token whose decoded payload has userId === user._id and exp ~ 7 days from iat', async () => {
         const knownId = new ObjectId().toHexString();
