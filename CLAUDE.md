@@ -53,7 +53,7 @@ ES modules (`"type": "module"`). Three layers:
 Key things to know:
 
 - **Rate limiters are a factory.** [middleware/limiters.js](backend/middleware/limiters.js) exports `createLimiters({ store })` — pass an injected `MemoryStore` in tests so state doesn't leak across cases. Per-route limits: global 60/min, auth 10/min, classify 100/min.
-- **Classification flow** ([data/classification.js](backend/data/classification.js)): cache key is `sha256(url:goal:sensitivity)` with 24h TTL in Redis. Sensitivity (`lenient` / `standard` / `strict`) swaps the system prompt block. Model is `claude-haiku-4-5`, `max_tokens: 100`. **Fails open** — any Anthropic error, malformed JSON, or unknown decision returns `{decision: 'ALLOW', ...}` rather than blocking the user. `clearClassificationCache` is called on user override and **rewrites** the entry to `ALLOW` (not just delete) so the user isn't immediately re-blocked on the same page.
+- **Classification flow** ([data/classification.js](backend/data/classification.js)): cache key is `sha256(url:goal:sensitivity)` with 24h TTL in Redis. Sensitivity (`lenient` / `standard` / `strict`) swaps the system prompt block. Model is `claude-haiku-4-5`, `max_tokens: 100`. **Fails open** — any Anthropic error, malformed JSON, or unknown decision returns `{decision: 'ALLOW', ...}` rather than blocking the user, and the fail-open result is **NOT** cached so a transient failure can be retried. `clearClassificationCache` is called on user override and **rewrites** the entry to `ALLOW` (not just delete) so the user isn't immediately re-blocked on the same page.
 
 ### Frontend ([frontend/](frontend/))
 
@@ -84,6 +84,8 @@ For every testable change, follow this sequence strictly — no skipping steps:
 When proposing a test plan or writing tests, apply these rules and **surface the analysis in the response** — don't just follow them silently.
 
 **Test file location (backend):** colocate `*.test.js` next to the source file it tests (e.g., `data/classification.js` → `data/classification.test.js`). Extension Playwright tests stay in their existing structure.
+
+**Backend Mongo test harness:** data-layer tests run against `mongodb-memory-server` started in [backend/test/globalSetup.js](backend/test/globalSetup.js); [backend/vitest.config.js](backend/vitest.config.js) sets `fileParallelism: false` because all test files share that one in-memory DB. Don't add per-test Mongo mocks, and don't re-enable file parallelism — both cause cross-test DB collisions.
 
 **How to write tests**
 
@@ -122,6 +124,6 @@ When proposing a test plan or writing tests, apply these rules and **surface the
 - Before starting any task, read all relevant files first. Resolve ambiguity by reading the code. Only ask clarifying questions if the answer cannot be found in the codebase or CLAUDE.md — and **batch questions into one message**.
 - **Confidence threshold:** before proceeding on an assumption, be at least ~95% confident the task can be completed successfully. If not, ask — don't guess. A single batched clarification is cheaper than building on a wrong assumption.
 - For every plan, state what it covers, what it deliberately leaves out, and what risks remain. Do not self-evaluate the plan — give the user the tradeoffs and let them decide.
-- If a task involves changes to **4+ files or 3+ distinct areas** of the codebase, propose a chunked plan before starting. Group chunks by shared files, testing patterns, or area of the codebase. Explain why items belong together. Otherwise, just start working.
+- For tasks Claude judges too big to complete in one session without burning excessive tokens, propose a chunked plan before starting; otherwise just start working. Don't chunk for token-budget reasons that don't actually exist.
 - For chunked plans: write a high-level overview of all chunks first. Expand each chunk into a detailed step-by-step **just-in-time** — right before executing that chunk, not all upfront. The detail will go stale otherwise.
 - Execute chunks sequentially: open PR → review (via `pr-review`) → merge → start the next chunk. Do not stack multiple chunk PRs simultaneously.
