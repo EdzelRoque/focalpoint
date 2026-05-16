@@ -42,7 +42,6 @@ const callClaude = async (url, pageTitle, pageSnippet, sessionGoal, blockSensiti
         `;
     }
 
-    try {
       const response = await client.messages.create({
         model: 'claude-haiku-4-5',
         max_tokens: 100,
@@ -77,11 +76,6 @@ const callClaude = async (url, pageTitle, pageSnippet, sessionGoal, blockSensiti
         throw 'Invalid decision format';
       }
       return parsed;
-    } catch (error) {
-        console.error('Classification API Error:', error);
-        // If Claude returns something unexpected, default to ALLOW
-        return { decision: 'ALLOW', reason: 'Classification error -- defaulting to allow' };
-    }
 };
 
 export const classify = async (url, pageTitle, pageSnippet, sessionGoal, blockSensitivity) => {
@@ -101,16 +95,26 @@ export const classify = async (url, pageTitle, pageSnippet, sessionGoal, blockSe
         return parsed;
     }
 
-    // Cache miss, proceed to classify the text
-    const decision = await callClaude(url, pageTitle, pageSnippet, sessionGoal, blockSensitivity);
-    await redis.set(cacheKey, JSON.stringify(decision), 'EX', 86400); // Cache for 24 hours
-    
-    return decision;
+    // Cache miss, proceed to classify the text. Fail open on any error
+    // (network, malformed JSON, etc.) but do NOT cache the fail-open result —
+    // a transient failure shouldn't poison the cache for 24h.
+    try {
+        const decision = await callClaude(url, pageTitle, pageSnippet, sessionGoal, blockSensitivity);
+        await redis.set(cacheKey, JSON.stringify(decision), 'EX', 86400); // Cache for 24 hours
+        return decision;
+    } catch (error) {
+        console.error('Classification API Error:', error);
+        return { decision: 'ALLOW', reason: 'Classification error -- defaulting to allow' };
+    }
 };
 
 
 // Helper function to clear classification cache for a specific URL and session goal (called when user overrides a block)
 export const clearClassificationCache = async (url, sessionGoal, blockSensitivity) => {
+    url = validateURL(url);
+    sessionGoal = validateSessionGoal(sessionGoal);
+    blockSensitivity = validateBlockSensitivity(blockSensitivity);
+
     const cacheKey = `classify:${crypto.createHash('sha256').update(`${url}:${sessionGoal}:${blockSensitivity}`).digest('hex')}`;
     await redis.del(cacheKey);
 

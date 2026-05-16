@@ -55,8 +55,8 @@ export const createSession = async (userId, sessionGoal, durationInMinutes=null)
     if (!insertInfo.acknowledged || !insertInfo.insertedId) throw 'Could not create session';
 
     return {
-        _id: insertInfo.insertedId.toString(),
         ...newSession,
+        _id: insertInfo.insertedId.toString(),
         userId: userId,
     };
 };
