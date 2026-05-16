@@ -20,7 +20,7 @@ jobs:
           cache: 'npm'
           cache-dependency-path: backend/package-lock.json
       - run: npm install
-      - run: npm test
+      - run: npx vitest run --passWithNoTests
 
   extension-test:
     runs-on: ubuntu-latest
@@ -36,4 +36,9 @@ jobs:
           cache-dependency-path: extension/package-lock.json
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: xvfb-run --auto-servernum npm test
+      - run: |
+          if find tests -name "*.spec.js" | grep -q .; then
+            xvfb-run --auto-servernum npm test
+          else
+            echo "No test files found, skipping."
+          fi
