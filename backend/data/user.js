@@ -63,7 +63,7 @@ export const login = async (email, password) => {
     password = password.trim();
 
     // Find the user by email
-    const user = await userCollection.findOne({ email: email.toLowerCase() });
+    const user = await userCollection.findOne({ email: email });
     if (!user) throw 'Invalid email or password';
 
     // Compare the provided password with the stored hashed password

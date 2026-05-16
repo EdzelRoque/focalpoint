@@ -13,5 +13,7 @@ export const dbConnection = async () => {
   return _db;
 };
 export const closeConnection = async () => {
-  await _connection.close();
+  if (_connection) await _connection.close();
+  _connection = undefined;
+  _db = undefined;
 };
