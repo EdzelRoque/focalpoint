@@ -83,6 +83,8 @@ For every testable change, follow this sequence strictly — no skipping steps:
 
 When proposing a test plan or writing tests, apply these rules and **surface the analysis in the response** — don't just follow them silently.
 
+**Test file location (backend):** colocate `*.test.js` next to the source file it tests (e.g., `data/classification.js` → `data/classification.test.js`). Extension Playwright tests stay in their existing structure.
+
 **How to write tests**
 
 - One assertion per concept. Many small focused tests beat one giant test.
