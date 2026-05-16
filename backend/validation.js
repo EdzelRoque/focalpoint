@@ -4,7 +4,7 @@ import { ObjectId } from 'mongodb';
 // HELPERS FOR VALIDATION FUNCTIONS
 
 const validateString = (str, varName) => {
-    if (!str) throw `You must provide a ${varName}`;
+    if (!str) throw `You must provide a(n) ${varName}`;
     if (typeof str !== 'string') throw `${varName} must be a string`;
     if (str.trim().length === 0) throw `${varName} cannot be an empty string or just spaces`;
     return str.trim();
@@ -16,6 +16,8 @@ const validateString = (str, varName) => {
 const validateUsername = (username) => {
     username = validateString(username, 'Username');
     if (username.length < 3) throw 'Username must be at least 3 characters long';
+    if (username.length > 25) throw 'Username must be at most 25 characters long';
+    if (!/^[A-Za-z0-9._]+$/.test(username)) throw 'Username can only contain letters, numbers, periods, and underscores';
     return username;
 };
 
@@ -27,8 +29,10 @@ const validateEmail = (email) => {
 };
 
 const validatePassword = (password) => {
-  password = validateString(password, 'Password');
+  if (!password) throw 'You must provide a(n) Password';
+  if (typeof password !== 'string') throw 'Password must be a string';
   if (password.length < 8) throw 'Password must be at least 8 characters long';
+  if (/\s/.test(password)) throw 'Password cannot contain spaces';
 
   let hasUpperCase = false;
   let hasLowerCase = false;
@@ -38,9 +42,9 @@ const validatePassword = (password) => {
   for (let i = 0; i < password.length; i++) {
     const char = password[i];
     if (char >= 'A' && char <= 'Z') hasUpperCase = true;
-    if (char >= 'a' && char <= 'z') hasLowerCase = true;
-    if (char >= '0' && char <= '9') hasDigit = true;
-    if (char === '!' || char === '@' || char === '#' || char === '$' || char === '%' || char === '^' || char === '&' || char === '*' || char === '(' || char === ')') hasSpecialChar = true;
+    else if (char >= 'a' && char <= 'z') hasLowerCase = true;
+    else if (char >= '0' && char <= '9') hasDigit = true;
+    else hasSpecialChar = true;
   }
 
   if (!hasUpperCase) throw 'Password must contain at least one uppercase letter';
@@ -57,15 +61,17 @@ const validateId = (id) => {
 };
 
 const validateTimeDuration = (duration) => {
-    if (!duration) throw 'You must provide a time duration';
-    if (typeof duration !== 'number') throw 'Time duration must be a number';
+    if (duration === undefined || duration === null) throw 'You must provide a time duration';
+    if (typeof duration !== 'number' || Number.isNaN(duration)) throw 'Time duration must be a number';
     if (duration <= 0) throw 'Time duration must be a positive number';
+    if (duration > 1440) throw 'Time duration must be at most 1440 minutes (24 hours)';
     return duration;
 };
 
 const validateSessionGoal = (sessionGoal) => {
     sessionGoal = validateString(sessionGoal, 'Session Goal');
     if (sessionGoal.length < 10) throw 'Session goal must be at least 10 characters long';
+    if (sessionGoal.length > 500) throw 'Session goal must be at most 500 characters long';
     return sessionGoal;
 };
 
