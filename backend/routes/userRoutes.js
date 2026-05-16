@@ -33,7 +33,7 @@ router.route('/register')
         // Call the register function from userData
         try {
             const newUser = await userData.register(username, email, password);
-            return res.json(newUser);
+            return res.status(201).json(newUser);
         } catch (error) {
             if (error === 'Username is already taken' || error === 'Email is already registered') {
                 return res.status(409).json({ error: error });
