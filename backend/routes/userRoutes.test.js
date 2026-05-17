@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { buildTestApp } from '../test/buildTestApp.js';
 import { clearDb } from '../test/dbHelpers.js';
@@ -96,5 +97,75 @@ describe('POST /auth/register', () => {
 
     expect(res.status).toBe(409);
     expect(res.body).toEqual({ error: 'Email is already registered' });
+  });
+});
+
+describe('POST /auth/login', () => {
+  beforeEach(async () => {
+    await register(validBody.username, validBody.email, validBody.password);
+  });
+
+  it('returns 200 with a JWT carrying only userId, plus public user fields', async () => {
+    const res = await request(app)
+      .post('/auth/login')
+      .send({ email: validBody.email, password: validBody.password });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      username: 'jane.doe',
+      email: 'jane@example.com',
+      preferences: { blockSensitivity: 'standard', strictMode: false },
+    });
+    expect(typeof res.body._id).toBe('string');
+    expect(res.body).not.toHaveProperty('password');
+    expect(typeof res.body.token).toBe('string');
+
+    const decoded = jwt.verify(res.body.token, process.env.JWT_SECRET);
+    expect(decoded.userId).toBe(res.body._id);
+    expect(decoded).not.toHaveProperty('email');
+    expect(decoded).not.toHaveProperty('password');
+  });
+
+  it('returns 400 when the body is empty', async () => {
+    const res = await request(app).post('/auth/login').send({});
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'You must provide credentials' });
+  });
+
+  it('returns 400 with a generic "Invalid email or password" when email is missing (no field-level leak)', async () => {
+    const res = await request(app)
+      .post('/auth/login')
+      .send({ password: validBody.password });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Invalid email or password' });
+  });
+
+  it('returns 400 with a generic "Invalid email or password" when password is missing', async () => {
+    const res = await request(app)
+      .post('/auth/login')
+      .send({ email: validBody.email });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Invalid email or password' });
+  });
+
+  it('returns 401 with "Invalid email or password" when the password is wrong', async () => {
+    const res = await request(app)
+      .post('/auth/login')
+      .send({ email: validBody.email, password: 'WrongPass1!' });
+
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ error: 'Invalid email or password' });
+  });
+
+  it('returns the same 401 + message when the email is unknown (no user-enumeration leak)', async () => {
+    const res = await request(app)
+      .post('/auth/login')
+      .send({ email: 'nobody@example.com', password: validBody.password });
+
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ error: 'Invalid email or password' });
   });
 });
