@@ -52,8 +52,9 @@ router.route('/sessions')
         // Call the createSession function from sessionData
         try {
             const newSession = await sessionData.createSession(userId, sessionGoal, durationInMinutes);
-            return res.json(newSession);
+            return res.status(201).json(newSession);
         } catch (error) {
+            if (error === 'You already have an active session') return res.status(409).json({ error: error });
             return res.status(500).json({ error: error });
         }
     });
@@ -74,15 +75,13 @@ router.route('/sessions/:id')
 
         // Call the getSessionById function from sessionData
         try {
-            let session = await sessionData.getSessionById(sessionId);
-            if (!session) {
-                return res.status(404).json({ error: 'Session not found' });
-            }
+            const session = await sessionData.getSessionById(sessionId);
             if (session.userId.toString() !== req.user.userId) {
                 return res.status(403).json({ error: 'Forbidden' });
             }
             return res.json(session);
         } catch (error) {
+            if (error === 'Session not found') return res.status(404).json({ error: error });
             return res.status(500).json({ error: error });
         }
     })
@@ -112,6 +111,7 @@ router.route('/sessions/:id')
             return res.json(updatedSession);
         } catch (error) {
             if (error === 'Session not found') return res.status(404).json({ error: error });
+            if (error === 'Session is already ended') return res.status(409).json({ error: error });
             return res.status(500).json({ error: error });
         }
     });
