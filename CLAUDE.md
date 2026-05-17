@@ -54,6 +54,7 @@ Key things to know:
 
 - **Rate limiters are a factory.** [middleware/limiters.js](backend/middleware/limiters.js) exports `createLimiters({ store })` — pass an injected `MemoryStore` in tests so state doesn't leak across cases. Per-route limits: global 60/min, auth 10/min, classify 100/min.
 - **Classification flow** ([data/classification.js](backend/data/classification.js)): cache key is `sha256(url:goal:sensitivity)` with 24h TTL in Redis. Sensitivity (`lenient` / `standard` / `strict`) swaps the system prompt block. Model is `claude-haiku-4-5`, `max_tokens: 100`. **Fails open** — any Anthropic error, malformed JSON, or unknown decision returns `{decision: 'ALLOW', ...}` rather than blocking the user, and the fail-open result is **NOT** cached so a transient failure can be retried. `clearClassificationCache` is called on user override and **rewrites** the entry to `ALLOW` (not just delete) so the user isn't immediately re-blocked on the same page.
+- **Route HTTP-status conventions.** Resource-creating POSTs return **201**. User-facing conflicts return **409** by mapping the data layer's thrown string in the route's `catch` (e.g. `'Username is already taken'`, `'You already have an active session'`, `'Session is already ended'`). Data-layer `'... not found'` throws map to **404**. Don't let user-facing errors fall through to **500** — 500 is reserved for genuinely unexpected failures.
 
 ### Frontend ([frontend/](frontend/))
 
@@ -86,6 +87,8 @@ When proposing a test plan or writing tests, apply these rules and **surface the
 **Test file location (backend):** colocate `*.test.js` next to the source file it tests (e.g., `data/classification.js` → `data/classification.test.js`). Extension Playwright tests stay in their existing structure.
 
 **Backend Mongo test harness:** data-layer tests run against `mongodb-memory-server` started in [backend/test/globalSetup.js](backend/test/globalSetup.js); [backend/vitest.config.js](backend/vitest.config.js) sets `fileParallelism: false` because all test files share that one in-memory DB. Don't add per-test Mongo mocks, and don't re-enable file parallelism — both cause cross-test DB collisions.
+
+**Backend route test harness:** use [backend/test/buildTestApp.js](backend/test/buildTestApp.js) (`buildTestApp()` mounts `configRoutes` on a bare express app — no `listen`, no rate limiters) for supertest. Use [backend/test/authHelpers.js](backend/test/authHelpers.js) (`registerAndSign({ username?, email?, password? })` → `{ user, token }`) to get a JWT for authed routes. Do **not** import `backend/app.js` in tests — it calls `app.listen` at module load and asserts on env vars.
 
 **How to write tests**
 
