@@ -90,6 +90,8 @@ When proposing a test plan or writing tests, apply these rules and **surface the
 
 **Backend route test harness:** use [backend/test/buildTestApp.js](backend/test/buildTestApp.js) (`buildTestApp()` mounts `configRoutes` on a bare express app — no `listen`, no rate limiters) for supertest. Use [backend/test/authHelpers.js](backend/test/authHelpers.js) (`registerAndSign({ username?, email?, password? })` → `{ user, token }`) to get a JWT for authed routes. Do **not** import `backend/app.js` in tests — it calls `app.listen` at module load and asserts on env vars.
 
+**Seeding sessions in tests:** `createSession` rejects when the user already has an active session, so tests that need multiple sessions per user, an inactive session, or specific `startTime` values must seed directly via `(await sessions()).insertOne({...})` rather than going through the data layer.
+
 **How to write tests**
 
 - One assertion per concept. Many small focused tests beat one giant test.
