@@ -2,8 +2,10 @@ import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
+import { ObjectId } from 'mongodb';
 import { buildTestApp } from '../test/buildTestApp.js';
 import { clearDb } from '../test/dbHelpers.js';
+import { registerAndSign } from '../test/authHelpers.js';
 import { users } from '../config/mongoCollections.js';
 import { closeConnection } from '../config/mongoConnection.js';
 import { register } from '../data/user.js';
@@ -167,5 +169,108 @@ describe('POST /auth/login', () => {
 
     expect(res.status).toBe(401);
     expect(res.body).toEqual({ error: 'Invalid email or password' });
+  });
+});
+
+describe('PUT /auth/settings', () => {
+  it('updates username/email/preferences for the caller and leaves the password hash untouched', async () => {
+    const { user, token } = await registerAndSign({
+      username: 'orig.user',
+      email: 'orig@example.com',
+    });
+    const userCollection = await users();
+    const before = await userCollection.findOne({ _id: new ObjectId(user._id) });
+
+    const res = await request(app)
+      .put('/auth/settings')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        username: 'new.user',
+        email: 'new@example.com',
+        blockSensitivity: 'strict',
+        strictMode: true,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      message: 'Settings updated successfully',
+      user: {
+        username: 'new.user',
+        email: 'new@example.com',
+        preferences: { blockSensitivity: 'strict', strictMode: true },
+      },
+    });
+
+    const after = await userCollection.findOne({ _id: new ObjectId(user._id) });
+    expect(after.password).toBe(before.password);
+  });
+
+  it('returns 401 without a token', async () => {
+    const res = await request(app)
+      .put('/auth/settings')
+      .send({
+        username: 'new.user',
+        email: 'new@example.com',
+        blockSensitivity: 'standard',
+        strictMode: false,
+      });
+
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 409 when the new username is already taken by a different user', async () => {
+    await register('taken.user', 'taken@example.com', 'OtherPass1!');
+    const { token } = await registerAndSign({ username: 'me.user', email: 'me@example.com' });
+
+    const res = await request(app)
+      .put('/auth/settings')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        username: 'taken.user',
+        email: 'me@example.com',
+        blockSensitivity: 'standard',
+        strictMode: false,
+      });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: 'Username is already taken' });
+  });
+});
+
+describe('GET /auth/me', () => {
+  it('returns the caller\'s username, email, and preferences (no password, no _id)', async () => {
+    const { token } = await registerAndSign({ username: 'jane.doe', email: 'jane@example.com' });
+
+    const res = await request(app)
+      .get('/auth/me')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      username: 'jane.doe',
+      email: 'jane@example.com',
+      preferences: { blockSensitivity: 'standard', strictMode: false },
+    });
+    expect(res.body).not.toHaveProperty('password');
+    expect(res.body).not.toHaveProperty('_id');
+  });
+
+  it('returns 401 without a token', async () => {
+    const res = await request(app).get('/auth/me');
+
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 when the token is valid but the user row has been deleted', async () => {
+    const { user, token } = await registerAndSign();
+    const userCollection = await users();
+    await userCollection.deleteOne({ _id: new ObjectId(user._id) });
+
+    const res = await request(app)
+      .get('/auth/me')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: 'User not found' });
   });
 });
