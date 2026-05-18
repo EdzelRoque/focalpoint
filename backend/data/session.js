@@ -132,7 +132,10 @@ export const incrementBlockCount = async (sessionId) => {
     // Validate sessionId
     sessionId = validateId(sessionId);
 
-    // Increment the blockCount for the session
+    const session = await sessionCollection.findOne({ _id: new ObjectId(sessionId) });
+    if (!session) throw 'Session not found';
+    if (!session.isActive) throw 'Session is already ended';
+
     const updateInfo = await sessionCollection.updateOne(
         { _id: new ObjectId(sessionId) },
         { $inc: { blockCount: 1 } }
@@ -150,7 +153,10 @@ export const incrementOverrideCount = async (sessionId) => {
     // Validate sessionId
     sessionId = validateId(sessionId);
 
-    // Increment the overrideCount for the session
+    const session = await sessionCollection.findOne({ _id: new ObjectId(sessionId) });
+    if (!session) throw 'Session not found';
+    if (!session.isActive) throw 'Session is already ended';
+
     const updateInfo = await sessionCollection.updateOne(
         { _id: new ObjectId(sessionId) },
         { $inc: { overrideCount: 1 } }

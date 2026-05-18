@@ -143,6 +143,7 @@ router.route('/sessions/:id/block')
             return res.json(updatedSession);
         } catch (error) {
             if (error === 'Session not found') return res.status(404).json({ error: error });
+            if (error === 'Session is already ended') return res.status(409).json({ error: error });
             return res.status(500).json({ error: error });
         }
     });
@@ -184,6 +185,7 @@ router.route('/sessions/:id/override')
             return res.json(updatedSession);
         } catch (error) {
             if (error === 'Session not found') return res.status(404).json({ error: error });
+            if (error === 'Session is already ended') return res.status(409).json({ error: error });
             return res.status(500).json({ error: error });
         }
     });
