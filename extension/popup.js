@@ -55,17 +55,8 @@ const startElapsedTimer = (startTime) => {
   if (elapsedInterval) clearInterval(elapsedInterval); // Clear any existing timer
 
   const update = () => {
-    // Calculate elapsed time
     const elapsed = Math.floor((Date.now() - startTime) / 1000);
-    const hours = Math.floor(elapsed / 3600);
-    const minutes = Math.floor((elapsed % 3600) / 60);
-    const seconds = elapsed % 60;
-
-    if (hours > 0) {
-      timerDisplay.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    } else {
-      timerDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    }
+    timerDisplay.textContent = fpPopupHelpers.formatElapsed(elapsed);
   };
 
   update();
@@ -122,8 +113,9 @@ loginForm.addEventListener('submit', async (event) => {
   const password = loginPassword.value.trim();
 
   // Validate email and password
-  if (!email || !password) {
-    showError(loginError, 'Please fill in all fields.');
+  const loginCheck = fpPopupHelpers.validateLoginFields(email, password);
+  if (!loginCheck.valid) {
+    showError(loginError, loginCheck.error);
     return;
   }
 
@@ -161,20 +153,13 @@ sessionForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   hideError(startError);
 
-  // Get the goal and duration values from the submitted form
-  const goal = sessionGoal.value.trim();
-  const duration = sessionDuration.value;
-
   // Validate goal and duration
-  if (!goal) {
-    showError(startError, 'Please enter a goal for your focus session.');
-    return;
-  }
-  if (duration && (isNaN(duration) || duration < 1 || duration > 480)) {
-    showError(
-      startError,
-      'Please enter a valid duration between 1 and 480 minutes.',
-    );
+  const sessionCheck = fpPopupHelpers.validateSessionInput(
+    sessionGoal.value,
+    sessionDuration.value,
+  );
+  if (!sessionCheck.valid) {
+    showError(startError, sessionCheck.error);
     return;
   }
 
@@ -189,8 +174,8 @@ sessionForm.addEventListener('submit', async (event) => {
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
-        sessionGoal: goal,
-        durationInMinutes: duration ? parseInt(duration) : null
+        sessionGoal: sessionCheck.goal,
+        durationInMinutes: sessionCheck.duration
       }),
     });
     const data = await res.json();
