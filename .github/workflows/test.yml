@@ -35,6 +35,7 @@ jobs:
           cache: 'npm'
           cache-dependency-path: extension/package-lock.json
       - run: npm ci
+      - run: npx vitest run
       - run: npx playwright install --with-deps chromium
       - run: |
           if find tests -name "*.spec.js" | grep -q .; then
