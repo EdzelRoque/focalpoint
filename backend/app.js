@@ -11,7 +11,12 @@ if (!process.env.JWT_SECRET || !process.env.ANTHROPIC_API_KEY || !process.env.MO
 
 const app = express();
 
-const { global: globalLimiter, auth: authLimiter, classify: classifyLimiter } = createLimiters();
+// RATE_LIMIT_MAX is an env-gated escape hatch for automated test traffic
+// (the extension journey suite drives real requests far above human rates).
+// Unset in production, so the hardcoded per-route limits apply unchanged.
+const { global: globalLimiter, auth: authLimiter, classify: classifyLimiter } = createLimiters(
+    process.env.RATE_LIMIT_MAX ? { max: Number(process.env.RATE_LIMIT_MAX) } : {},
+);
 app.use('/api/classify', classifyLimiter);
 app.use('/auth', authLimiter);
 app.use(globalLimiter);
