@@ -118,14 +118,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                         activeSession.blockCount += 1;
                         await chrome.storage.local.set({ activeSession }); // Persist the updated session state
 
-                        // Send a message to popup to update the UI stats
+                        // Send a message to popup to update the UI stats.
+                        // Fire-and-forget: rejects whenever the popup is closed
+                        // (no receiving end), which must not fail the block flow.
                         chrome.runtime.sendMessage({
                             action: "stats_update",
                             stats: {
                                 blockCount: activeSession.blockCount,
                                 overrideCount: activeSession.overrideCount
                             }
-                        });
+                        }).catch(() => {});
                     } else {
                         console.warn("Background: block sync failed", blockRes.status);
                     }
@@ -196,14 +198,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             activeSession.overrideCount += 1;
             await chrome.storage.local.set({ activeSession }); // Persist the updated session state
 
-            // Send a message to popup to update the UI stats
+            // Send a message to popup to update the UI stats.
+            // Fire-and-forget: rejects whenever the popup is closed (no
+            // receiving end), which must not fail the override flow.
             chrome.runtime.sendMessage({
               action: 'stats_update',
               stats: {
                 blockCount: activeSession.blockCount,
                 overrideCount: activeSession.overrideCount,
               },
-            });
+            }).catch(() => {});
 
             sendResponse({ status: 'Override logged' });
           } else {

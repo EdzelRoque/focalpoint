@@ -267,6 +267,10 @@ logoutBtn.addEventListener('click', async () => {
 // Listen for stat updates from background -- this will be for changes in block/override counts while session is active
 chrome.runtime.onMessage.addListener((message) => {
   if (message.action === 'stats_update') {
+    // Live stats belong to the active-session view only; ignore broadcasts
+    // while the login or start view is showing.
+    if (viewActive.style.display === 'none') return;
+
     statBlocks.textContent = message.stats.blockCount || 0;
     statOverrides.textContent = message.stats.overrideCount || 0;
   }
