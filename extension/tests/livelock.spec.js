@@ -1,20 +1,20 @@
-// Journey: Churning feed still gets blocked (Tier 2) — ARRIVES RED.
+// Journey: Churning feed still gets blocked (Tier 2).
 //
-// Known bug (docs/planning/extension/classify-retry-livelock.md): the retry
-// guard in content.js defers classification whenever the title matches the
-// last classified title but the snippet changed. On a page whose text never
-// stops changing (feeds, tickers, chat), every re-check defers again — the
-// page is never classified after a tab_change and the overlay never appears.
-//
-// test.fixme keeps CI green until the interim fix lands (bounded retry: one
-// deferral per navigation event, then classify with the current snippet).
-// The fix PR flips this to a live test — red-first, then green.
+// Pins the fix for the retry livelock (docs/planning/extension/
+// classify-retry-livelock.md): content.js used to defer classification
+// whenever the title matched the last classified title but the snippet
+// changed — on a page whose text never stops changing (feeds, tickers,
+// chat) every re-check deferred again, so the page was never classified
+// after a tab_change and the overlay never appeared. The bounded retry
+// (one deferral per trigger, then classify with the current snippet)
+// guarantees the overlay within ~2s; the contract-level cases live in
+// content.test.js.
 
 import { test, expect, pageUrl, uniqueGoal } from './helpers/fixtures.js';
 import { getSession } from './helpers/api.js';
 import { seedDecision } from './helpers/seed.js';
 
-test.fixme('churning feed tab still gets blocked after a tab switch', async ({
+test('churning feed tab still gets blocked after a tab switch', async ({
   startSessionDirect,
   context,
 }) => {

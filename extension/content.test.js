@@ -7,9 +7,10 @@
  * guards). fpContentHelpers is stubbed — snippet extraction and the overlay
  * DOM have their own unit tests in lib/; these tests are about the contract.
  *
- * Every case keeps the snippet stub constant so the same-title/changed-snippet
- * retry guard (the documented livelock, classify-retry-livelock.md) never
- * triggers — its behavior is deliberately not encoded here.
+ * The tab_change / spa_change cases keep the snippet stub constant so the
+ * same-title/changed-snippet retry guard stays out of their way; the guard's
+ * own contract (bounded retry — the fix for the livelock documented in
+ * classify-retry-livelock.md) is encoded in its dedicated describe block.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createChromeFake } from './test/chrome-fake.js';
@@ -140,6 +141,55 @@ describe('tab_change', () => {
     await flush();
 
     expect(fpContentHelpers.injectBlockOverlay).not.toHaveBeenCalled();
+  });
+});
+
+describe('same-title retry guard (bounded deferral)', () => {
+  // init() in beforeEach already classified once, pinning
+  // lastClassifiedTitle = 'Start Page' / lastClassifiedSnippet =
+  // 'controlled snippet text' — the guard's precondition.
+
+  it('classifies with the current snippet after a single 1s deferral when the snippet changed under the same title', async () => {
+    vi.useFakeTimers();
+    fake.chrome.runtime.sendMessage.mockResolvedValue({ decision: 'ALLOW' });
+    fpContentHelpers.getPageSnippet.mockReturnValue('snippet after settling');
+
+    fake.dispatchMessage({ action: 'tab_change' });
+    await vi.advanceTimersByTimeAsync(0);
+
+    // Still-rendering heuristic: same title + changed snippet defers once
+    expect(fake.chrome.runtime.sendMessage).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1000);
+
+    // Catches: the deferral never settling into an actual classification
+    expect(fake.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
+    expect(fake.chrome.runtime.sendMessage).toHaveBeenCalledWith({
+      action: 'classify_page',
+      payload: {
+        url: 'https://example.com/start',
+        pageTitle: 'Start Page',
+        pageSnippet: 'snippet after settling',
+      },
+    });
+  });
+
+  it('does not livelock when the snippet never stops changing', async () => {
+    vi.useFakeTimers();
+    fake.chrome.runtime.sendMessage.mockResolvedValue({ decision: 'ALLOW' });
+    let churn = 0;
+    fpContentHelpers.getPageSnippet.mockImplementation(
+      () => `churning snippet ${++churn}`,
+    );
+
+    fake.dispatchMessage({ action: 'tab_change' });
+    await vi.advanceTimersByTimeAsync(5000);
+
+    // Catches: unbounded re-deferral on feed-like pages — distinct from the
+    // test above, which a wait-for-stability regression would still pass;
+    // here the snippet is different on every read and classification must
+    // happen anyway (exactly once, with whatever snippet was current).
+    expect(fake.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
   });
 });
 
