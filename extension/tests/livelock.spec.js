@@ -30,7 +30,7 @@ test.fixme('churning feed tab still gets blocked after a tab switch', async ({
   await feedTab.waitForTimeout(1500);
   await expect(feedTab.locator('#focalpoint-overlay')).toHaveCount(0);
 
-  const otherTab = await context.newPage();
+  await context.newPage();
   const session = await startSessionDirect(goal);
   await seedDecision(
     pageUrl('feed.html'),
@@ -53,6 +53,4 @@ test.fixme('churning feed tab still gets blocked after a tab switch', async ({
       intervals: [250, 500, 1000],
     })
     .toBe(1);
-
-  otherTab.close();
 });

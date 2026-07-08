@@ -138,7 +138,7 @@ test('switching to an already-open off-topic tab injects the overlay', async ({
   // in the background. (Direct-seeded: popup-driven session start is owned
   // by its own journey, and storage.set exercises the same onChanged sync
   // path in the background SW.)
-  const otherTab = await context.newPage();
+  await context.newPage();
   const session = await startSessionDirect(goal);
   await seedDecision(
     pageUrl('off-topic.html'),
@@ -161,6 +161,4 @@ test('switching to an already-open off-topic tab injects the overlay', async ({
       intervals: [250, 500, 1000],
     })
     .toBe(1);
-
-  otherTab.close();
 });
