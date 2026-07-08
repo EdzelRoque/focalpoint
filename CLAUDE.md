@@ -36,7 +36,7 @@ npm test         # vitest under jsdom
 ```bash
 npm run test:unit                # vitest + jsdom: lib/*.test.js units + root *.test.js contract tests
 npx playwright install chromium
-npm test                         # Playwright journeys (tests/*.spec.js per playwright.config.js)
+npm test                         # Playwright journeys (tests/*.spec.js) — boots a real local backend + mongodb-memory-server; needs Redis on 127.0.0.1:6379 (docker run -d -p 6379:6379 redis:7)
 ```
 
 There is no monorepo runner — CI runs backend vitest and extension vitest + Playwright separately.
@@ -71,7 +71,7 @@ The frontend hardcodes the Render backend URL — there is no build-time env sub
 
 ## Test suite status
 
-The old test suite was deleted on 2026-05-16 (unclear, mock-heavy). **Do not resurrect deleted tests.** Extension Playwright journeys and frontend tests don't exist yet — their absence is not a regression.
+The old test suite was deleted on 2026-05-16 (unclear, mock-heavy). **Do not resurrect deleted tests.** Frontend tests don't exist yet — their absence is not a regression.
 
 `docs/planning/` holds planning prompts, finalized specs, and deferred-problem docs — check it before re-diagnosing or fixing known-deferred issues.
 
