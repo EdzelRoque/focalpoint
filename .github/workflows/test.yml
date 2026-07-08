@@ -24,6 +24,13 @@ jobs:
 
   extension-test:
     runs-on: ubuntu-latest
+    # Journey tests (Playwright) run a real local backend whose classification
+    # cache needs a real Redis; the harness uses db index 15 on it.
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
     defaults:
       run:
         working-directory: extension
@@ -36,6 +43,10 @@ jobs:
           cache-dependency-path: extension/package-lock.json
       - run: npm ci
       - run: npx vitest run
+      # The journey harness spawns the real backend (node app.js), so the
+      # backend's dependencies must be installed too.
+      - run: npm install
+        working-directory: backend
       - run: npx playwright install --with-deps chromium
       - run: |
           if find tests -name "*.spec.js" | grep -q .; then
