@@ -34,7 +34,7 @@ npm test         # vitest under jsdom
 **Extension** (`extension/`) — load unpacked from `chrome://extensions` (Developer mode → Load unpacked → point at `extension/`); reload after edits. Tests use real headed Chromium (MV3 can't run headless); CI uses xvfb.
 
 ```bash
-npm run test:unit                # vitest + jsdom unit tests (lib/*.test.js)
+npm run test:unit                # vitest + jsdom: lib/*.test.js units + root *.test.js contract tests
 npx playwright install chromium
 npm test                         # Playwright journeys (tests/*.spec.js per playwright.config.js)
 ```
@@ -72,7 +72,7 @@ The frontend hardcodes the Render backend URL — there is no build-time env sub
 
 ## Test suite status
 
-The old test suite was deleted on 2026-05-16 (unclear, mock-heavy). **Do not resurrect deleted tests.** The new suite so far: backend vitest (routes + data layer + validation) and extension unit tests (`extension/lib/*.test.js`). Extension Playwright journeys and frontend tests don't exist yet — their absence is not a regression.
+The old test suite was deleted on 2026-05-16 (unclear, mock-heavy). **Do not resurrect deleted tests.** The new suite so far: backend vitest (routes + data layer + validation), extension unit tests (`extension/lib/*.test.js`), and extension contract tests (`extension/*.test.js`, colocated with the entry scripts; shared `chrome.*` fake in `extension/test/chrome-fake.js`). Extension Playwright journeys and frontend tests don't exist yet — their absence is not a regression.
 
 `docs/planning/` holds planning prompts, finalized specs, and deferred-problem docs (goal-quality, classify-retry-livelock, extraction-research) — check it before re-diagnosing or fixing known-deferred issues.
 
