@@ -85,6 +85,8 @@ For every testable change, follow this sequence strictly — no skipping steps:
 3. **Write the minimum implementation to make it pass.** No extra changes.
 4. **Show the passing output.** Confirm the test goes green.
 
+Red-first applies to agreed behavior changes. Tests that pin existing behavior arrive green — verify with a brief mutation check (break the line, see the test fail, revert) instead of forcing red. A pinning test that is unexpectedly red is a spec/code disagreement — surface it before changing code.
+
 ## Testing rules
 
 When proposing a test plan or writing tests, apply these rules and **surface the analysis in the response** — don't just follow them silently.
@@ -128,6 +130,7 @@ When proposing a test plan or writing tests, apply these rules and **surface the
 
 - Use the `git-commit` skill (via the Skill tool) for commits — do not run `git commit` directly.
 - Use the `pr-review` skill for PR reviews — do not improvise a review.
+- Use the `update-claudemd` skill for CLAUDE.md updates — keep it lean; skip anything already communicated by code comments, .gitignore, or skills.
 
 ## Planning Rules
 
