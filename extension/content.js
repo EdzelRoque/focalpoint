@@ -8,8 +8,10 @@ let lastClassifiedSnippet = null;
 // the fpContentHelpers namespace directly — destructuring into same-named
 // consts is a redeclaration SyntaxError in the shared content-script scope.
 
-// Helper function to call the background script, which calls the Claude API
-const classify_page = async () => {
+// Helper function to call the background script, which calls the Claude API.
+// isRetry is compared strictly to true because event listeners invoke this
+// with an Event as the first argument.
+const classify_page = async (isRetry) => {
   const url = window.location.href;
   const pageTitle = document.title;
   const pageSnippet = fpContentHelpers.getPageSnippet();
@@ -18,8 +20,13 @@ const classify_page = async () => {
   if (url.startsWith('chrome://') || url.startsWith('chrome-extension://'))
     return;
 
-  if (pageTitle === lastClassifiedTitle && pageSnippet !== lastClassifiedSnippet) {
-    setTimeout(classify_page, 1000);
+  // Same title but changed snippet usually means the page is still rendering
+  // — give it one beat to settle. At most ONE deferral per trigger: pages
+  // whose text never stops changing (feeds, tickers, chat) would otherwise
+  // re-defer forever and never be classified (classify-retry-livelock.md).
+  // The retry classifies with whatever snippet is current.
+  if (pageTitle === lastClassifiedTitle && pageSnippet !== lastClassifiedSnippet && isRetry !== true) {
+    setTimeout(() => classify_page(true), 1000);
     return;
   }
 
