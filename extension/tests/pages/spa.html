@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SPA Home</title>
+</head>
+<body>
+  <nav>
+    <button id="to-blocked">Arcade</button>
+    <button id="to-allowed">Library</button>
+  </nav>
+  <main id="route-content">
+    <p>Welcome to the single page app home screen with plenty of introductory text.</p>
+  </main>
+  <script>
+    // Minimal pushState SPA. Like real routers, each route updates
+    // document.title — content.js's retry guard keys on the title, and a
+    // same-title navigation is the (separately tested) livelock case, not
+    // the generic SPA case.
+    const routes = {
+      '/spa-blocked': {
+        title: 'SPA Arcade Zone',
+        text: 'Play endless arcade games and waste glorious hours right here.',
+      },
+      '/spa-allowed': {
+        title: 'SPA Docs Library',
+        text: 'Read the documentation library for your important research topics.',
+      },
+    };
+    const render = (path) => {
+      document.title = routes[path].title;
+      document.getElementById('route-content').textContent = routes[path].text;
+    };
+    document.getElementById('to-blocked').addEventListener('click', () => {
+      history.pushState({}, '', '/spa-blocked');
+      render('/spa-blocked');
+    });
+    document.getElementById('to-allowed').addEventListener('click', () => {
+      history.pushState({}, '', '/spa-allowed');
+      render('/spa-allowed');
+    });
+  </script>
+</body>
+</html>

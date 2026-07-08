@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Live Focus Feed</title>
+</head>
+<body>
+  <main>
+    <h1>Live Focus Feed</h1>
+    <p id="ticker">Live scores stream starting up with plenty of opening chatter here.</p>
+  </main>
+  <script>
+    // The page whose text never stops changing — title constant, body
+    // mutating faster than content.js's 1s retry, which is exactly the
+    // livelock trigger documented in classify-retry-livelock.md.
+    let n = 0;
+    setInterval(() => {
+      document.getElementById('ticker').textContent =
+        'Live update number ' + (++n) + ' with randomness ' + Math.random() +
+        ' and endless filler chatter to keep the snippet changing.';
+    }, 300);
+  </script>
+</body>
+</html>
