@@ -9,7 +9,7 @@ FocalPoint is an AI-powered focus assistant. User declares a goal + duration in 
 Three independent deployables, each with its own `package.json` — no root workspace, run `npm install` per subdirectory:
 
 - [backend/](backend/) — Node + Express + MongoDB + Redis + Anthropic SDK (ES modules). Deployed to Render.
-- [frontend/](frontend/) — Vite + React 18 + TypeScript + shadcn/ui + Tailwind. Deployed to Vercel. Path alias `@/` → `frontend/src/`. Dev server on port 8080.
+- [frontend/](frontend/) — Vite + React 18 + TypeScript + shadcn/ui + Tailwind. Deployed to Vercel. Path alias `@/` → `frontend/src/`.
 - [extension/](extension/) — Chrome MV3, plain JS service worker + content script (no build step).
 
 ## Commands
@@ -68,13 +68,12 @@ The frontend hardcodes the Render backend URL — there is no build-time env sub
 - **`chrome.storage.local` is the source of truth** for `activeSession`. [background.js](extension/background.js) keeps a lazy in-memory cache and uses `chrome.storage.onChanged` to stay in sync. Do **not** pre-warm the cache at SW startup — it races with cold-wake events (see the commented-out `init()` and the comment explaining why).
 - The backend URL is hardcoded in both [background.js](extension/background.js) and [manifest.json](extension/manifest.json) `host_permissions`.
 - **Pure helpers live in [extension/lib/](extension/lib/)** as classic scripts (no `export` — content scripts can't be ESM) publishing `fpContentHelpers` / `fpPopupHelpers` on `globalThis`; the manifest and popup.html load them before `content.js` / `popup.js`. In content scripts, call through the namespace — destructuring into same-named top-level consts is a redeclaration SyntaxError in the shared scope.
-- jsdom lacks `innerText`; [extension/test/setup.js](extension/test/setup.js) shims it to `textContent`. Real innerText semantics are the Playwright layer's job.
 
 ## Test suite status
 
-The old test suite was deleted on 2026-05-16 (unclear, mock-heavy). **Do not resurrect deleted tests.** The new suite so far: backend vitest (routes + data layer + validation), extension unit tests (`extension/lib/*.test.js`), and extension contract tests (`extension/*.test.js`, colocated with the entry scripts; shared `chrome.*` fake in `extension/test/chrome-fake.js`). Extension Playwright journeys and frontend tests don't exist yet — their absence is not a regression.
+The old test suite was deleted on 2026-05-16 (unclear, mock-heavy). **Do not resurrect deleted tests.** Extension Playwright journeys and frontend tests don't exist yet — their absence is not a regression.
 
-`docs/planning/` holds planning prompts, finalized specs, and deferred-problem docs (goal-quality, classify-retry-livelock, extraction-research) — check it before re-diagnosing or fixing known-deferred issues.
+`docs/planning/` holds planning prompts, finalized specs, and deferred-problem docs — check it before re-diagnosing or fixing known-deferred issues.
 
 ## TDD Workflow
 
@@ -130,7 +129,7 @@ When proposing a test plan or writing tests, apply these rules and **surface the
 
 - Use the `git-commit` skill (via the Skill tool) for commits — do not run `git commit` directly.
 - Use the `pr-review` skill for PR reviews — do not improvise a review.
-- Use the `update-claudemd` skill for CLAUDE.md updates — keep it lean; skip anything already communicated by code comments, .gitignore, or skills.
+- Use the `update-claudemd` skill for CLAUDE.md updates.
 
 ## Planning Rules
 
