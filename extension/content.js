@@ -13,7 +13,8 @@ let lastClassifiedSnippet = null;
 // with an Event as the first argument.
 const classify_page = async (isRetry) => {
   const url = window.location.href;
-  const pageTitle = document.title;
+  // Untitled pages fall back to the hostname — the backend rejects blank titles
+  const pageTitle = document.title.trim() || window.location.hostname;
   const pageSnippet = fpContentHelpers.getPageSnippet();
 
   // Don't classify extension pages or chrome:// pages or if user has already chosen to override

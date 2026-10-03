@@ -144,6 +144,26 @@ describe('tab_change', () => {
   });
 });
 
+describe('untitled pages', () => {
+  // The backend rejects titles under 2 chars, so a blank title must be
+  // replaced before sending or the page is never classified.
+  it.each([
+    ['empty', ''],
+    ['whitespace-only', '   '],
+  ])('sends the hostname as pageTitle when the title is %s', async (_label, title) => {
+    document.title = title;
+    fake.chrome.runtime.sendMessage.mockResolvedValueOnce({ decision: 'ALLOW' });
+
+    fake.dispatchMessage({ action: 'tab_change' });
+    await flush();
+
+    expect(fake.chrome.runtime.sendMessage).toHaveBeenCalledWith({
+      action: 'classify_page',
+      payload: expect.objectContaining({ pageTitle: 'example.com' }),
+    });
+  });
+});
+
 describe('same-title retry guard (bounded deferral)', () => {
   // init() in beforeEach already classified once, pinning
   // lastClassifiedTitle = 'Start Page' / lastClassifiedSnippet =
