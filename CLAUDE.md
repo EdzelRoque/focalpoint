@@ -86,7 +86,7 @@ Vite, React 18, TypeScript, shadcn/ui, and Tailwind, deployed to Vercel. `@/` ma
 - `lib/*.test.js` tests pure helpers. Root `*.test.js` files are contract tests that use the fake `chrome` API in `test/chrome-fake.js`.
 - `tests/global-setup.js` boots the real backend, Mongo, and a page server, and copies the extension with its backend URL rewritten to the local server.
 - `tests/helpers/seed.js` writes decisions directly to Redis using the production cache key, so Anthropic is never called.
-- `tests/helpers/backend-log.js` confirms classification ran by reading the backend's `Cached:` log line.
+- `tests/global-setup.js` also runs a small proxy that records `/api/classify` responses, and `tests/helpers/backend-log.js` reads them to confirm classification ran.
 
 ## Deployment
 
