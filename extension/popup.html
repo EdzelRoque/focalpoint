@@ -50,6 +50,20 @@
         </p>
     </div>
 
+    <div id="view-consent" class="view" style="display:none;">
+        <div class="view-intro">
+            <p class="view-title">Before you start</p>
+            <p class="view-sub">Here's what FocalPoint sends to check pages against your goal.</p>
+        </div>
+        <ul class="consent-list">
+            <li>During a session, each page's address (without anything after ? or #), title, and up to 500 characters of text go to the FocalPoint server and Anthropic's Claude AI.</li>
+            <li>Banking, health, email, password manager, and government sites on a built-in list, local addresses, and pages with a password field aren't sent.</li>
+            <li>The built-in list can't cover every sensitive site. Add others to your private sites, or end your session before visiting them.</li>
+        </ul>
+        <button class="btn-primary" id="consent-agree">I agree</button>
+        <p class="auth-switch"><a href="#" id="consent-policy">Read the privacy policy →</a></p>
+    </div>
+
     <!-- ══════════════════════════════════════════
          VIEW 2: Start Session (logged in, no active session)
     ══════════════════════════════════════════ -->
@@ -126,7 +140,22 @@
 
         <button class="btn-end" id="end-btn">End session</button>
     </div>
+    <!-- Private sites: shown with the start and active views -->
+    <details id="private-sites" class="private-sites" style="display:none;">
+        <summary>Private sites</summary>
+        <p class="field-hint">FocalPoint never sends these sites, or their subdomains, for checking.</p>
+        <form id="private-form" novalidate>
+            <div class="private-row">
+                <input type="text" id="private-domain" placeholder="example.com" aria-label="Domain to keep private" />
+                <button type="submit" class="private-add">Add</button>
+            </div>
+        </form>
+        <div id="private-error" class="error-msg" style="display:none;"></div>
+        <ul id="private-list" class="private-list"></ul>
+    </details>
 
+
+    <script src="lib/privacy.js"></script>
     <script src="lib/popup-helpers.js"></script>
     <script src="popup.js"></script>
 </body>

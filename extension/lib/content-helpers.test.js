@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import './content-helpers.js';
 
-const { getPageSnippet, injectBlockOverlay } = globalThis.fpContentHelpers;
+const { getPageSnippet, injectBlockOverlay, hasPasswordField } = globalThis.fpContentHelpers;
 
 const LONG_TEXT =
   'Deep work is the ability to focus without distraction on a\n' +
@@ -124,13 +124,13 @@ describe('injectBlockOverlay', () => {
 
   it('sends the override message and removes the overlay on proceed', () => {
     globalThis.chrome = { runtime: { sendMessage: vi.fn() } };
-    injectBlockOverlay('reason', false);
+    injectBlockOverlay('reason', false, 'Page Title');
 
     document.getElementById('fp-proceed').click();
 
     expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
       action: 'override_page',
-      payload: { url: window.location.href },
+      payload: { url: window.location.href, pageTitle: 'Page Title' },
     });
     expect(document.getElementById('focalpoint-overlay')).toBeNull();
   });
@@ -141,5 +141,19 @@ describe('injectBlockOverlay', () => {
     const reasonEl = document.getElementById('fp-reason');
     expect(reasonEl.textContent).toBe('<img src=x onerror=alert(1)>');
     expect(reasonEl.querySelector('img')).toBeNull();
+  });
+});
+
+describe('hasPasswordField', () => {
+  it('is true when the page has a password input', () => {
+    document.body.innerHTML = '<input type="password" />';
+
+    expect(hasPasswordField()).toBe(true);
+  });
+
+  it('is false when the page has none', () => {
+    document.body.innerHTML = '<input type="text" />';
+
+    expect(hasPasswordField()).toBe(false);
   });
 });

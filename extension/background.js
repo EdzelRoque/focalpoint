@@ -1,3 +1,5 @@
+import './lib/privacy.js'; // publishes globalThis.fpPrivacy
+
 // Keep track of the session in memory for quick access
 const BASE_URL = 'https://focalpoint-q8r5.onrender.com';
 let activeSession = null;
@@ -13,6 +15,18 @@ const getActiveSession = async () => {
         console.error('Background: Error loading active session from storage', err);
     }
     return activeSession;
+};
+
+// The one place page data leaves the extension. Returns a reason to withhold
+// the page, or null when it may be sent.
+const getWithholdReason = async (url) => {
+    const { privacyConsent, privateDomains } = await chrome.storage.local.get([
+        'privacyConsent',
+        'privateDomains',
+    ]);
+    if (!privacyConsent) return 'Privacy consent needed';
+    if (fpPrivacy.isNeverSend(url, privateDomains ?? [])) return 'Private page';
+    return null;
 };
 
 // Keep the in-memory cache in sync with storage writes from any source
@@ -79,6 +93,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 const blockSensitivity = session.blockSensitivity;
                 const strictMode = session.strictMode;
 
+                const withheld = await getWithholdReason(url);
+                if (withheld) {
+                    sendResponse({ decision: "ALLOW", reason: withheld, strictMode });
+                    return;
+                }
+
                 // Load token from storage to authenticate the request
                 const { token } = await chrome.storage.local.get("token");
                 if (!token) {
@@ -93,11 +113,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                         'Authorization': `Bearer ${token}`
                     },
                     body: JSON.stringify({
-                        url: url,
+                        url: fpPrivacy.stripUrl(url),
                         pageTitle: pageTitle,
                         pageSnippet: pageSnippet,
                         sessionGoal: sessionGoal,
-                        blockSensitivity: blockSensitivity
+                        blockSensitivity: blockSensitivity,
+                        urlStripped: true
                     })
                 });
                 const data = await res.json();
@@ -171,6 +192,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const sessionGoal = session.sessionGoal;
           const blockSensitivity = session.blockSensitivity;
 
+          const withheld = await getWithholdReason(url);
+          if (withheld) {
+            sendResponse({ error: withheld });
+            return;
+          }
           // Load token from storage to authenticate the request
           const { token } = await chrome.storage.local.get('token');
           if (!token) {
@@ -187,7 +213,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 Authorization: `Bearer ${token}`,
               },
               body: JSON.stringify({
-                url: url,
+                url: fpPrivacy.stripUrl(url),
+                pageTitle: payload.pageTitle,
                 sessionGoal: sessionGoal,
                 blockSensitivity: blockSensitivity,
               }),

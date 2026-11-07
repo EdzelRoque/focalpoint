@@ -4,6 +4,7 @@ const BASE_URL = 'https://focalpoint-q8r5.onrender.com';
 const viewLogin = document.getElementById('view-login');
 const viewStart = document.getElementById('view-start');
 const viewActive = document.getElementById('view-active');
+const viewConsent = document.getElementById('view-consent');
 const logoutBtn = document.getElementById('logout-btn');
 
 // DOM elements for login view
@@ -27,6 +28,15 @@ const statOverrides = document.getElementById('stat-overrides');
 const endError = document.getElementById('end-error');
 const endSessionBtn = document.getElementById('end-btn');
 
+// DOM elements for consent and the private sites list
+const consentAgree = document.getElementById('consent-agree');
+const consentPolicy = document.getElementById('consent-policy');
+const privateSites = document.getElementById('private-sites');
+const privateForm = document.getElementById('private-form');
+const privateDomain = document.getElementById('private-domain');
+const privateError = document.getElementById('private-error');
+const privateList = document.getElementById('private-list');
+
 let elapsedInterval = null; // To track the elapsed timer interval
 
 // Helper functions
@@ -45,9 +55,13 @@ const showView = (view) => {
   viewLogin.style.display = 'none';
   viewStart.style.display = 'none';
   viewActive.style.display = 'none';
-
+  viewConsent.style.display = 'none';
   // Show the selected view
   view.style.display = 'flex';
+
+  // The private list applies whenever the user can be in a session
+  const listVisible = view === viewStart || view === viewActive;
+  privateSites.style.display = listVisible ? 'block' : 'none';
 };
 
 // Elapsed timer
@@ -80,27 +94,91 @@ const loadActiveSession = (session) => {
   showView(viewActive);
 };
 
-const init = async () => {
-  const storage = await chrome.storage.local.get(['token', 'activeSession']);
+// Signed-in users pass through consent before any session view
+const showSignedInView = async () => {
+  const { privacyConsent, activeSession } = await chrome.storage.local.get([
+    'privacyConsent',
+    'activeSession',
+  ]);
+  logoutBtn.style.display = 'block';
 
-  if (!storage.token) {
+  if (!privacyConsent) {
+    showView(viewConsent);
+  } else if (activeSession) {
+    loadActiveSession(activeSession);
+  } else {
+    showView(viewStart);
+  }
+};
+
+// Private sites list. Text only: saved values never render as HTML.
+const renderPrivateList = async () => {
+  const { privateDomains = [] } = await chrome.storage.local.get(['privateDomains']);
+  privateList.replaceChildren(
+    ...privateDomains.map((domain) => {
+      const item = document.createElement('li');
+      const name = document.createElement('span');
+      name.textContent = domain;
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.textContent = 'Remove';
+      remove.setAttribute('aria-label', `Remove ${domain}`);
+      remove.addEventListener('click', async () => {
+        await chrome.storage.local.set({
+          privateDomains: privateDomains.filter((d) => d !== domain),
+        });
+        await renderPrivateList();
+      });
+      item.append(name, remove);
+      return item;
+    }),
+  );
+};
+
+const init = async () => {
+  await renderPrivateList();
+  const { token } = await chrome.storage.local.get(['token']);
+
+  if (!token) {
     // Not logged in
     showView(viewLogin);
     return;
   }
 
-  if (storage.activeSession) {
-    // Logged in and session is running
-    loadActiveSession(storage.activeSession);
-    return;
-  }
-
-  // Logged in but no active session
-  logoutBtn.style.display = 'block';
-  showView(viewStart);
+  await showSignedInView();
 };
 
 init();
+
+// Consent logic
+consentAgree.addEventListener('click', async () => {
+  await chrome.storage.local.set({ privacyConsent: true });
+  await showSignedInView();
+});
+
+consentPolicy.addEventListener('click', (event) => {
+  event.preventDefault();
+  chrome.tabs.create({ url: 'https://focalpoint-rho.vercel.app/privacy' });
+});
+
+// Private sites logic
+privateForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  hideError(privateError);
+
+  const domain = fpPrivacy.normalizeDomain(privateDomain.value);
+  if (!domain) {
+    showError(privateError, 'Please enter a domain, such as example.com.');
+    return;
+  }
+
+  const { privateDomains = [] } = await chrome.storage.local.get(['privateDomains']);
+  if (!privateDomains.includes(domain)) {
+    await chrome.storage.local.set({ privateDomains: [...privateDomains, domain] });
+  }
+  privateDomain.value = '';
+  await renderPrivateList();
+});
 
 // Login logic
 loginForm.addEventListener('submit', async (event) => {
@@ -134,8 +212,7 @@ loginForm.addEventListener('submit', async (event) => {
     }
 
     await chrome.storage.local.set({ token: data.token });
-    logoutBtn.style.display = 'block';
-    showView(viewStart);
+    await showSignedInView();
   } catch (err) {
     showError(loginError, 'An error occurred. Please try again.');
   }
@@ -259,7 +336,9 @@ logoutBtn.addEventListener('click', async () => {
     }
   }
 
-  await chrome.storage.local.clear();
+  // Consent and the private list stay: signing out must not silently
+  // start sending pages the user chose to keep private.
+  await chrome.storage.local.remove(['token', 'activeSession']);
   logoutBtn.style.display = 'none';
   showView(viewLogin);
 });

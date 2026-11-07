@@ -37,7 +37,7 @@ let fetchMock;
 // Popup-style seeding: storage is the source of truth; the onChanged listener
 // primes the background cache as a side effect, same as in real Chrome.
 const seedActive = async (session = makeSession()) => {
-  await fake.chrome.storage.local.set({ token: 'tok-1', activeSession: session });
+  await fake.chrome.storage.local.set({ token: 'tok-1', activeSession: session, privacyConsent: true });
   fake.chrome.storage.local.set.mockClear();
   return session;
 };
@@ -45,6 +45,8 @@ const seedActive = async (session = makeSession()) => {
 beforeEach(async () => {
   fake = createChromeFake();
   globalThis.chrome = fake.chrome;
+  await fake.chrome.storage.local.set({ privacyConsent: true });
+  fake.chrome.storage.local.set.mockClear();
   fetchMock = vi.fn();
   vi.stubGlobal('fetch', fetchMock);
   vi.resetModules();
@@ -156,6 +158,7 @@ describe('classify_page', () => {
       pageSnippet: 'Some page text long enough to matter',
       sessionGoal: 'Study for my machine learning exam',
       blockSensitivity: 'standard',
+      urlStripped: true,
     });
     expect(response).toEqual({ decision: 'ALLOW', reason: 'on topic', strictMode: true });
     expect(fake.chrome.storage.local.set).not.toHaveBeenCalled();
@@ -272,7 +275,7 @@ describe('classify_page', () => {
 });
 
 describe('override_page', () => {
-  const overridePayload = { url: 'https://example.com/article' };
+  const overridePayload = { url: 'https://example.com/article', pageTitle: 'An Article' };
 
   it('POSTs the override, persists the incremented count, broadcasts stats, and acks', async () => {
     await seedActive(makeSession({ blockCount: 4, overrideCount: 2 }));
@@ -289,6 +292,7 @@ describe('override_page', () => {
     });
     expect(JSON.parse(init.body)).toEqual({
       url: 'https://example.com/article',
+      pageTitle: 'An Article',
       sessionGoal: 'Study for my machine learning exam',
       blockSensitivity: 'standard',
     });
@@ -409,5 +413,76 @@ describe('tabs.onUpdated → spa_change forward', () => {
     await fake.dispatchTabUpdated(9, { url: 'https://example.com/next' });
 
     expect(fake.chrome.tabs.sendMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe('privacy rules', () => {
+  const classifyUrl = (url) =>
+    fake.dispatchMessage({ action: 'classify_page', payload: makePayload({ url }) });
+
+  it('sends nothing for a built-in never-send site and allows the page', async () => {
+    await seedActive();
+
+    const response = await classifyUrl('https://secure.chase.com/accounts');
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(response.decision).toBe('ALLOW');
+  });
+
+  it('sends nothing for a domain on the private list', async () => {
+    await seedActive();
+    await fake.chrome.storage.local.set({ privateDomains: ['mytherapist.example'] });
+
+    const response = await classifyUrl('https://portal.mytherapist.example/notes');
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(response.decision).toBe('ALLOW');
+  });
+
+  it('sends nothing until the user has given consent', async () => {
+    await seedActive();
+    await fake.chrome.storage.local.remove('privacyConsent');
+
+    const response = await classifyUrl('https://example.com/article');
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(response.decision).toBe('ALLOW');
+  });
+
+  it('removes the query string and fragment before classifying', async () => {
+    await seedActive();
+    fetchMock.mockResolvedValueOnce(jsonResponse({ decision: 'ALLOW', reason: 'ok' }));
+
+    await classifyUrl('https://example.com/reset?token=secret#section');
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).url).toBe('https://example.com/reset');
+    expect(fetchMock.mock.calls[0][1].body).not.toContain('secret');
+  });
+
+  it('removes the query string before sending an override', async () => {
+    await seedActive();
+    fetchMock.mockResolvedValueOnce(jsonResponse({}));
+
+    await fake.dispatchMessage({
+      action: 'override_page',
+      payload: { url: 'https://example.com/watch?v=secret', pageTitle: 'A Video' },
+    });
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      url: 'https://example.com/watch',
+      pageTitle: 'A Video',
+    });
+  });
+
+  it('sends no override for a never-send site', async () => {
+    await seedActive();
+
+    const response = await fake.dispatchMessage({
+      action: 'override_page',
+      payload: { url: 'https://secure.chase.com/', pageTitle: 'Bank' },
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(response.error).toBeDefined();
   });
 });

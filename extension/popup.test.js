@@ -31,7 +31,7 @@ const makeSession = () => ({
 // Seed storage first, then import — popup.js queries the DOM and runs init()
 // at load, and init() decides the visible view from storage.
 const loadPopup = async (storageSeed) => {
-  await fake.chrome.storage.local.set(storageSeed);
+  await fake.chrome.storage.local.set({ privacyConsent: true, ...storageSeed });
   await import('./popup.js');
   await flushMicrotasks();
 };
@@ -46,12 +46,14 @@ beforeEach(async () => {
   globalThis.chrome = fake.chrome;
   vi.resetModules();
   await import('./lib/popup-helpers.js'); // publishes globalThis.fpPopupHelpers
+  await import('./lib/privacy.js'); // publishes globalThis.fpPrivacy
 });
 
 afterEach(() => {
   vi.useRealTimers();
   delete globalThis.chrome;
   delete globalThis.fpPopupHelpers;
+  delete globalThis.fpPrivacy;
 });
 
 describe('stats_update', () => {
@@ -81,5 +83,113 @@ describe('stats_update', () => {
 
     expect(statBlocks()).toBe('0');
     expect(statOverrides()).toBe('0');
+  });
+});
+
+const isVisible = (id) => document.getElementById(id).style.display !== 'none';
+
+describe('privacy consent', () => {
+  it('shows the consent view instead of the start view until the user agrees', async () => {
+    await loadPopup({ token: 'tok-1', privacyConsent: undefined });
+
+    expect(isVisible('view-consent')).toBe(true);
+    expect(isVisible('view-start')).toBe(false);
+  });
+
+  it('stores consent and continues to the start view on agree', async () => {
+    await loadPopup({ token: 'tok-1', privacyConsent: undefined });
+
+    document.getElementById('consent-agree').click();
+    await flushMicrotasks();
+
+    expect((await fake.chrome.storage.local.get(['privacyConsent'])).privacyConsent).toBe(true);
+    expect(isVisible('view-start')).toBe(true);
+    expect(isVisible('view-consent')).toBe(false);
+  });
+
+  it('returns to a running session after agreeing', async () => {
+    await loadPopup({ token: 'tok-1', activeSession: makeSession(), privacyConsent: undefined });
+
+    document.getElementById('consent-agree').click();
+    await flushMicrotasks();
+
+    expect(isVisible('view-active')).toBe(true);
+  });
+
+  it('opens the privacy policy from the consent view', async () => {
+    await loadPopup({ token: 'tok-1', privacyConsent: undefined });
+
+    document.getElementById('consent-policy').click();
+
+    expect(fake.chrome.tabs.create).toHaveBeenCalledWith({
+      url: 'https://focalpoint-rho.vercel.app/privacy',
+    });
+  });
+});
+
+describe('private sites list', () => {
+  const addDomain = async (value) => {
+    document.getElementById('private-domain').value = value;
+    document.getElementById('private-form').dispatchEvent(new Event('submit', { cancelable: true }));
+    await flushMicrotasks();
+  };
+  const stored = async () => (await fake.chrome.storage.local.get(['privateDomains'])).privateDomains;
+
+  it('saves a cleaned-up domain and shows it', async () => {
+    await loadPopup({ token: 'tok-1' });
+
+    await addDomain('https://www.MyTherapist.example/notes');
+
+    expect(await stored()).toEqual(['mytherapist.example']);
+    expect(document.getElementById('private-list').textContent).toContain('mytherapist.example');
+  });
+
+  it('shows an error and saves nothing for an invalid domain', async () => {
+    await loadPopup({ token: 'tok-1' });
+
+    await addDomain('not a domain');
+
+    expect(await stored()).toBeUndefined();
+    expect(isVisible('private-error')).toBe(true);
+  });
+
+  it('does not add the same domain twice', async () => {
+    await loadPopup({ token: 'tok-1', privateDomains: ['example.com'] });
+
+    await addDomain('example.com');
+
+    expect(await stored()).toEqual(['example.com']);
+  });
+
+  it('removes a domain', async () => {
+    await loadPopup({ token: 'tok-1', privateDomains: ['example.com'] });
+
+    document.querySelector('#private-list button').click();
+    await flushMicrotasks();
+
+    expect(await stored()).toEqual([]);
+  });
+
+  it('renders a saved domain as text, never as HTML', async () => {
+    await loadPopup({ token: 'tok-1', privateDomains: ['<img src=x>.example'] });
+
+    expect(document.querySelector('#private-list img')).toBeNull();
+  });
+});
+
+describe('sign out', () => {
+  it('keeps consent and the private list, and removes the token and session', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({}) })));
+    await loadPopup({ token: 'tok-1', activeSession: makeSession(), privateDomains: ['example.com'] });
+
+    document.getElementById('logout-btn').click();
+    await flushMicrotasks();
+    await flushMicrotasks();
+
+    const left = await fake.chrome.storage.local.get([
+      'token', 'activeSession', 'privacyConsent', 'privateDomains',
+    ]);
+    expect(left).toEqual({ privacyConsent: true, privateDomains: ['example.com'] });
+    vi.unstubAllGlobals();
   });
 });

@@ -21,6 +21,7 @@ beforeEach(async () => {
   globalThis.fpContentHelpers = {
     getPageSnippet: vi.fn(() => 'controlled snippet text'),
     injectBlockOverlay: vi.fn(),
+    hasPasswordField: vi.fn(() => false),
   };
   vi.resetModules();
   await import('./content.js');

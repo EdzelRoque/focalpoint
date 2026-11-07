@@ -21,6 +21,9 @@ const classify_page = async (isRetry) => {
   if (url.startsWith('chrome://') || url.startsWith('chrome-extension://'))
     return;
 
+  // Pages asking for a password are never sent for classification.
+  if (fpContentHelpers.hasPasswordField()) return;
+
   // Same title but changed snippet usually means the page is still rendering
   // — give it one beat to settle. At most ONE deferral per trigger: pages
   // whose text never stops changing (feeds, tickers, chat) would otherwise
@@ -53,7 +56,7 @@ const classify_page = async (isRetry) => {
     }
 
     if (response.decision === 'BLOCK') {
-      fpContentHelpers.injectBlockOverlay(response.reason, response.strictMode);
+      fpContentHelpers.injectBlockOverlay(response.reason, response.strictMode, pageTitle);
     }
   } catch (err) {
     return;

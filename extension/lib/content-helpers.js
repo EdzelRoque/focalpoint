@@ -39,7 +39,7 @@ const getPageSnippet = () => {
 };
 
 // Injects the block overlay with a reason. No-op if one already exists.
-const injectBlockOverlay = (reason, strictMode) => {
+const injectBlockOverlay = (reason, strictMode, pageTitle) => {
   if (document.getElementById('focalpoint-overlay')) return;
 
   const overlay = document.createElement('div');
@@ -129,11 +129,13 @@ const injectBlockOverlay = (reason, strictMode) => {
     document.getElementById('fp-proceed').addEventListener('click', () => {
       chrome.runtime.sendMessage({
         action: 'override_page',
-        payload: { url: window.location.href },
+        payload: { url: window.location.href, pageTitle },
       });
       overlay.remove();
     });
   }
 };
 
-globalThis.fpContentHelpers = { getPageSnippet, injectBlockOverlay };
+const hasPasswordField = () => document.querySelector('input[type="password"]') !== null;
+
+globalThis.fpContentHelpers = { getPageSnippet, injectBlockOverlay, hasPasswordField };

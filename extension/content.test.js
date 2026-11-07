@@ -37,6 +37,7 @@ beforeEach(async () => {
   globalThis.fpContentHelpers = {
     getPageSnippet: vi.fn(() => 'controlled snippet text'),
     injectBlockOverlay: vi.fn(),
+    hasPasswordField: vi.fn(() => false),
   };
   vi.resetModules();
   await import('./content.js');
@@ -73,7 +74,7 @@ describe('tab_change', () => {
         pageSnippet: 'controlled snippet text',
       },
     });
-    expect(fpContentHelpers.injectBlockOverlay).toHaveBeenCalledWith('off topic', true);
+    expect(fpContentHelpers.injectBlockOverlay).toHaveBeenCalledWith('off topic', true, 'Start Page');
   });
 
   it('does not inject an overlay on ALLOW', async () => {
@@ -125,7 +126,7 @@ describe('tab_change', () => {
     await flush();
 
     expect(fpContentHelpers.injectBlockOverlay).toHaveBeenCalledTimes(1);
-    expect(fpContentHelpers.injectBlockOverlay).toHaveBeenCalledWith('fresh', false);
+    expect(fpContentHelpers.injectBlockOverlay).toHaveBeenCalledWith('fresh', false, 'Start Page');
   });
 
   it('discards a BLOCK for a page the user already navigated away from', async () => {
@@ -242,6 +243,17 @@ describe('spa_change', () => {
     fake.dispatchMessage({ action: 'spa_change' });
     history.pushState({}, '', '/changed-again');
     await vi.advanceTimersByTimeAsync(1000);
+
+    expect(fake.chrome.runtime.sendMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe('pages with a password field', () => {
+  it('sends nothing to the background for classification', async () => {
+    fpContentHelpers.hasPasswordField.mockReturnValue(true);
+
+    fake.dispatchMessage({ action: 'tab_change' });
+    await flush();
 
     expect(fake.chrome.runtime.sendMessage).not.toHaveBeenCalled();
   });
