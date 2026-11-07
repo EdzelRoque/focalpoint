@@ -20,6 +20,7 @@ export const test = base.extend({
           `--load-extension=${process.env.FP_EXT_DIR}`,
           '--no-first-run',
           '--no-default-browser-check',
+          '--host-resolver-rules=MAP focalpoint-pages.test 127.0.0.1',
         ],
       },
     );
@@ -44,6 +45,8 @@ export const test = base.extend({
       get: () => serviceWorker.evaluate(() => chrome.storage.local.get(null)),
       set: (items) =>
         serviceWorker.evaluate((i) => chrome.storage.local.set(i), items),
+      remove: (keys) =>
+        serviceWorker.evaluate((k) => chrome.storage.local.remove(k), keys),
     });
   },
 
@@ -65,6 +68,15 @@ export const test = base.extend({
       return session;
     });
   },
+
+  // Consent has its own journey; every other journey starts past it.
+  _privacyConsent: [
+    async ({ storage }, use) => {
+      await storage.set({ privacyConsent: true });
+      await use();
+    },
+    { auto: true },
+  ],
 
   _sessionCleanup: [
     async ({}, use) => {

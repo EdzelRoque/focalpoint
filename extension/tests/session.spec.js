@@ -122,7 +122,7 @@ test('popup reopen restores the Active view from storage', async ({
     .not.toBe(before);
 });
 
-test('logout with an active session ends it and clears all storage', async ({
+test('logout with an active session ends it and clears the token and session', async ({
   openPopup,
   startSessionDirect,
   storage,
@@ -142,8 +142,9 @@ test('logout with an active session ends it and clears all storage', async ({
     })
     .toBe(false);
 
-  // Catches: partial storage clear (stale token or session surviving)
-  expect(await storage.get()).toEqual({});
+  // Catches: a stale token or session surviving logout, or logout losing the
+  // privacy choices that keep private pages from being sent
+  expect(await storage.get()).toEqual({ privacyConsent: true });
 });
 
 test('starting a session when one exists elsewhere surfaces the 409', async ({

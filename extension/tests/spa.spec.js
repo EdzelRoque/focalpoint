@@ -31,6 +31,7 @@ test('pushState navigation re-classifies and manages the overlay', async ({
     session.blockSensitivity,
     'BLOCK',
     blockedReason,
+    'SPA Arcade Zone',
   );
   const allowedReason = `SPA-ALLOWED-${Date.now()}`;
   await seedDecision(
@@ -39,6 +40,7 @@ test('pushState navigation re-classifies and manages the overlay', async ({
     session.blockSensitivity,
     'ALLOW',
     allowedReason,
+    'SPA Docs Library',
   );
 
   const page = await context.newPage();
