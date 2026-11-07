@@ -4,7 +4,6 @@
 //   1. a rewritten copy of the extension pointing at the local backend
 //   2. mongodb-memory-server
 //   3. the real backend (`node app.js`) with stdout captured to a log file
-//      (the `Cached:` log line doubles as /api/classify observability)
 //   4. a static server for the deterministic test pages
 //   5. one registered + logged-in test user shared by all tests
 //
@@ -26,6 +25,7 @@ const backendRoot = path.resolve(extensionRoot, '..', 'backend');
 const tmpDir = path.join(__dirname, '.tmp');
 
 const BACKEND_PORT = Number(process.env.FP_TEST_BACKEND_PORT ?? 4310);
+const PROXY_PORT = Number(process.env.FP_TEST_PROXY_PORT ?? 4312);
 const PAGES_PORT = Number(process.env.FP_TEST_PAGES_PORT ?? 4311);
 const REDIS_URL = process.env.FP_TEST_REDIS_URL ?? 'redis://127.0.0.1:6379/15';
 
@@ -103,6 +103,41 @@ const startPagesServer = () =>
     });
     server.on('error', reject);
     server.listen(PAGES_PORT, '127.0.0.1', () => resolve(server));
+  });
+
+// The extension talks to the backend through this proxy, which records every
+// /api/classify response. That lets journeys ask "did a classification really
+// happen?" without the backend logging any page data.
+const startRecordingProxy = (backendUrl, logPath) =>
+  new Promise((resolve, reject) => {
+    const server = createServer(async (req, res) => {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(chunk);
+      const body = Buffer.concat(chunks);
+      try {
+        const upstream = await fetch(`${backendUrl}${req.url}`, {
+          method: req.method,
+          headers: Object.fromEntries(
+            Object.entries(req.headers).filter(([name]) => name !== 'host' && name !== 'connection'),
+          ),
+          body: body.length > 0 ? body : undefined,
+        });
+        const text = await upstream.text();
+        if (req.url === '/api/classify') fs.appendFileSync(logPath, `Classify response: ${text}\n`);
+        const headers = Object.fromEntries(
+          [...upstream.headers].filter(
+            ([name]) => !['content-encoding', 'content-length', 'transfer-encoding', 'connection'].includes(name),
+          ),
+        );
+        res.writeHead(upstream.status, headers);
+        res.end(text);
+      } catch {
+        res.writeHead(502);
+        res.end();
+      }
+    });
+    server.on('error', reject);
+    server.listen(PROXY_PORT, '127.0.0.1', () => resolve(server));
   });
 
 const startBackend = (backendUrl, mongoUri) => {
@@ -196,14 +231,16 @@ const registerAndLogin = async (backendUrl) => {
 
 export default async function globalSetup() {
   const backendUrl = `http://127.0.0.1:${BACKEND_PORT}`;
+  const proxyUrl = `http://127.0.0.1:${PROXY_PORT}`;
   const pagesUrl = `http://127.0.0.1:${PAGES_PORT}`;
 
   await prepareRedis();
-  const extDir = buildExtensionCopy(backendUrl);
+  const extDir = buildExtensionCopy(proxyUrl);
   const pagesServer = await startPagesServer();
   const mongod = await MongoMemoryServer.create();
   const { child: backend, logPath } = startBackend(backendUrl, mongod.getUri());
   await waitForBackend(backendUrl);
+  const proxy = await startRecordingProxy(backendUrl, logPath);
   const token = await registerAndLogin(backendUrl);
 
   // Workers inherit the runner's env — this is how tests find the stack.
@@ -218,6 +255,7 @@ export default async function globalSetup() {
   process.env.FP_REDIS_URL = REDIS_URL;
 
   return async () => {
+    await new Promise((resolve) => proxy.close(resolve));
     backend.kill();
     await new Promise((resolve) => {
       backend.once('exit', resolve);

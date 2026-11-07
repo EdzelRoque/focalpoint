@@ -1,8 +1,7 @@
-// The spawned backend's stdout is captured to a file (global-setup.js).
-// data/classification.js logs `Cached: {...}` on every cache hit, which gives
-// journeys "did /api/classify actually run?" observability without adding any
-// test-only code to the backend. Tests seed a distinctive reason per journey
-// and grep for it here.
+// global-setup.js records every /api/classify response to a file, which gives
+// journeys "did classification actually run?" observability from real network
+// traffic, with no test-only code in the backend. Tests seed a distinctive
+// reason per journey and grep for it here.
 
 import fs from 'node:fs';
 
