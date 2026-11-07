@@ -4,6 +4,7 @@ import authMiddleware from '../middleware/auth.js';
 import {
     validateBlockSensitivity,
     validateId,
+    validatePageTitle,
     validateSessionGoal,
     validateTimeDuration,
     validateURL
@@ -157,13 +158,14 @@ router.route('/sessions/:id/override')
         if (!sessionInfo || Object.keys(sessionInfo).length === 0) return res.status(400).json({ error: 'You must provide session information' });
 
         // Validate userId, sessionId, url, and sessionGoal
-        let { url, sessionGoal, blockSensitivity } = sessionInfo;
+        let { url, sessionGoal, blockSensitivity, pageTitle } = sessionInfo;
         try {
             userId = validateId(userId);
             sessionId = validateId(sessionId);
             url = validateURL(url);
             sessionGoal = validateSessionGoal(sessionGoal);
             blockSensitivity = validateBlockSensitivity(blockSensitivity);
+            if (pageTitle !== undefined) pageTitle = validatePageTitle(pageTitle);
         } catch (error) {
             return res.status(400).json({ error: error });
         }
@@ -180,7 +182,7 @@ router.route('/sessions/:id/override')
             const updatedSession = await sessionData.incrementOverrideCount(sessionId);
 
             // Clear the Redis cache for this URL+goal+blockSensitivity so next visit will auto allow
-            await classificationData.clearClassificationCache(url, sessionGoal, blockSensitivity);
+            await classificationData.clearClassificationCache(url, sessionGoal, blockSensitivity, { pageTitle });
 
             return res.json(updatedSession);
         } catch (error) {

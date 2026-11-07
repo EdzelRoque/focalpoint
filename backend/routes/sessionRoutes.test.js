@@ -520,3 +520,40 @@ describe('POST /api/sessions/:id/override', () => {
     expect(mockDel).not.toHaveBeenCalled();
   });
 });
+
+describe('POST /api/sessions/:id/override with pageTitle', () => {
+  const overrideBody = {
+    url: 'https://www.youtube.com/watch',
+    sessionGoal: 'A perfectly valid session goal here',
+    blockSensitivity: 'standard',
+  };
+
+  it('rewrites the cache entry for that page title', async () => {
+    const { user, token } = await registerAndSign();
+    const created = await createSession(user._id, validGoal);
+
+    const res = await request(app)
+      .post(`/api/sessions/${created._id}/override`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ ...overrideBody, pageTitle: 'Funny cats' });
+
+    expect(res.status).toBe(200);
+    const key = crypto
+      .createHash('sha256')
+      .update(`${overrideBody.url}:${overrideBody.sessionGoal}:${overrideBody.blockSensitivity}:Funny cats`)
+      .digest('hex');
+    expect(mockSet.mock.calls[0][0]).toBe(`classify:${key}`);
+  });
+
+  it('returns 400 when pageTitle is invalid', async () => {
+    const { user, token } = await registerAndSign();
+    const created = await createSession(user._id, validGoal);
+
+    const res = await request(app)
+      .post(`/api/sessions/${created._id}/override`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ ...overrideBody, pageTitle: 'x' });
+
+    expect(res.status).toBe(400);
+  });
+});

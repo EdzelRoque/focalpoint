@@ -166,3 +166,21 @@ describe('POST /api/classify', () => {
     expect(mockSet).not.toHaveBeenCalled();
   });
 });
+
+describe('POST /api/classify with urlStripped', () => {
+  it('uses a cache key that includes the page title', async () => {
+    const { token } = await registerAndSign();
+    mockGet.mockResolvedValue(JSON.stringify({ decision: 'ALLOW', reason: 'ok' }));
+
+    await request(app)
+      .post('/api/classify')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ ...validBody, urlStripped: true });
+
+    const key = crypto
+      .createHash('sha256')
+      .update(`${validBody.url}:${validBody.sessionGoal}:${validBody.blockSensitivity}:${validBody.pageTitle}`)
+      .digest('hex');
+    expect(mockGet).toHaveBeenCalledWith(`classify:${key}`);
+  });
+});

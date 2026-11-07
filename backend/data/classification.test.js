@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import crypto from 'crypto';
+import { inspect } from 'util';
 
 const mockGet = vi.fn();
 const mockSet = vi.fn();
@@ -125,5 +126,86 @@ describe('clearClassificationCache', () => {
 
     expect(mockDel).not.toHaveBeenCalled();
     expect(mockSet).not.toHaveBeenCalled();
+  });
+});
+
+describe('privacy', () => {
+  const secretUrl = 'https://example.com/reset?token=secret-token#fragment-secret';
+  const secretReason = 'This page mentions a private diagnosis';
+
+  const allLogOutput = (...spies) =>
+    spies.flatMap((spy) => spy.mock.calls).map((call) => call.map((arg) => inspect(arg)).join(' ')).join('\n');
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('never sends the query string or fragment to Claude', async () => {
+    mockGet.mockResolvedValue(null);
+    mockCreate.mockResolvedValue({ content: [{ text: '{"decision":"ALLOW","reason":"ok"}' }] });
+
+    await classify(secretUrl, inputs.pageTitle, inputs.pageSnippet, inputs.sessionGoal, 'standard');
+
+    const prompt = mockCreate.mock.calls[0][0].messages[0].content;
+    expect(prompt).toContain('Page URL: https://example.com/reset\n');
+    expect(prompt).not.toContain('secret');
+  });
+
+  it('does not log the decision reason after a Claude call', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    mockGet.mockResolvedValue(null);
+    mockCreate.mockResolvedValue({
+      content: [{ text: JSON.stringify({ decision: 'BLOCK', reason: secretReason }) }],
+    });
+
+    await classify(inputs.url, inputs.pageTitle, inputs.pageSnippet, inputs.sessionGoal, 'standard');
+
+    expect(allLogOutput(log)).not.toContain('diagnosis');
+  });
+
+  it('does not log the decision reason on a cache hit', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    mockGet.mockResolvedValue(JSON.stringify({ decision: 'BLOCK', reason: secretReason }));
+
+    await classify(inputs.url, inputs.pageTitle, inputs.pageSnippet, inputs.sessionGoal, 'standard');
+
+    expect(allLogOutput(log)).not.toContain('diagnosis');
+  });
+
+  it('logs only the failure type when a Claude call fails', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockGet.mockResolvedValue(null);
+    mockCreate.mockRejectedValue(new Error('request failed for private page text'));
+
+    await classify(inputs.url, inputs.pageTitle, inputs.pageSnippet, inputs.sessionGoal, 'standard');
+
+    expect(allLogOutput(error)).not.toContain('private page text');
+    expect(error).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('cache key for clients that remove the query string', () => {
+  const strippedKey = (url, goal, sens, title) =>
+    `classify:${crypto.createHash('sha256').update(`${url}:${goal}:${sens}:${title}`).digest('hex')}`;
+
+  it('gives pages with the same URL and different titles separate answers', async () => {
+    mockGet.mockResolvedValue(JSON.stringify({ decision: 'ALLOW', reason: 'ok' }));
+    const url = 'https://www.youtube.com/watch';
+
+    await classify(url, 'Calculus lecture', inputs.pageSnippet, inputs.sessionGoal, 'standard', { urlStripped: true });
+    await classify(url, 'Funny cats', inputs.pageSnippet, inputs.sessionGoal, 'standard', { urlStripped: true });
+
+    expect(mockGet.mock.calls[0][0]).toBe(strippedKey(url, inputs.sessionGoal, 'standard', 'Calculus lecture'));
+    expect(mockGet.mock.calls[1][0]).toBe(strippedKey(url, inputs.sessionGoal, 'standard', 'Funny cats'));
+  });
+
+  it('writes an override to the same key that classify reads', async () => {
+    mockGet.mockResolvedValue(null);
+    mockCreate.mockResolvedValue({ content: [{ text: '{"decision":"BLOCK","reason":"off topic"}' }] });
+
+    await classify(inputs.url, inputs.pageTitle, inputs.pageSnippet, inputs.sessionGoal, 'standard', { urlStripped: true });
+    await clearClassificationCache(inputs.url, inputs.sessionGoal, 'standard', { pageTitle: inputs.pageTitle });
+
+    expect(mockSet.mock.calls[1][0]).toBe(mockGet.mock.calls[0][0]);
   });
 });

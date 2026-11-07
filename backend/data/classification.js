@@ -13,6 +13,22 @@ const client = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY
 });
 
+// Query strings and fragments can hold reset tokens, session IDs, and search
+// terms, so they never go to Claude. The title identifies the page instead.
+const withoutQueryOrFragment = (url) => {
+    const parsed = new URL(url);
+    return parsed.origin + parsed.pathname;
+};
+
+// Clients that remove the query string send many pages as one URL (every
+// YouTube video is /watch), so the title has to be part of their cache key.
+// Older clients send the full URL and keep the original key.
+const cacheKeyFor = (url, sessionGoal, blockSensitivity, pageTitle) => {
+    const parts = [url, sessionGoal, blockSensitivity];
+    if (pageTitle !== undefined) parts.push(pageTitle);
+    return `classify:${crypto.createHash('sha256').update(parts.join(':')).digest('hex')}`;
+};
+
 const callClaude = async (url, pageTitle, pageSnippet, sessionGoal, blockSensitivity) => {
     let sensitivityInstructions = '';
 
@@ -59,7 +75,7 @@ const callClaude = async (url, pageTitle, pageSnippet, sessionGoal, blockSensiti
         messages: [
           {
             role: 'user',
-            content: `User's goal: ${sessionGoal}\n\nPage URL: ${url}\nPage title: ${pageTitle}\nPage content snippet: ${pageSnippet}\n\nIs this page relevant to the user's goal?`,
+            content: `User's goal: ${sessionGoal}\n\nPage URL: ${withoutQueryOrFragment(url)}\nPage title: ${pageTitle}\nPage content snippet: ${pageSnippet}\n\nIs this page relevant to the user's goal?`,
           },
         ],
       });
@@ -70,7 +86,6 @@ const callClaude = async (url, pageTitle, pageSnippet, sessionGoal, blockSensiti
       
       // Parse the JSON response
       const parsed = JSON.parse(text);
-      console.log('Claude response:', parsed);
 
       if (!parsed.decision || !['ALLOW', 'BLOCK'].includes(parsed.decision)) {
         throw 'Invalid decision format';
@@ -78,7 +93,7 @@ const callClaude = async (url, pageTitle, pageSnippet, sessionGoal, blockSensiti
       return parsed;
 };
 
-export const classify = async (url, pageTitle, pageSnippet, sessionGoal, blockSensitivity) => {
+export const classify = async (url, pageTitle, pageSnippet, sessionGoal, blockSensitivity, { urlStripped = false } = {}) => {
     // Validate url, pageTitle, pageSnippet, sessionGoal, blockSensitivity
     url = validateURL(url);
     pageTitle = validatePageTitle(pageTitle);
@@ -87,11 +102,10 @@ export const classify = async (url, pageTitle, pageSnippet, sessionGoal, blockSe
     blockSensitivity = validateBlockSensitivity(blockSensitivity);
 
     // Check Redis cache for existing classification result
-    const cacheKey = `classify:${crypto.createHash('sha256').update(`${url}:${sessionGoal}:${blockSensitivity}`).digest('hex')}`;
+    const cacheKey = cacheKeyFor(url, sessionGoal, blockSensitivity, urlStripped ? pageTitle : undefined);
     const cached = await redis.get(cacheKey);
     if (cached) {
         const parsed = JSON.parse(cached);
-        console.log('Cached:', parsed);
         return parsed;
     }
 
@@ -103,19 +117,22 @@ export const classify = async (url, pageTitle, pageSnippet, sessionGoal, blockSe
         await redis.set(cacheKey, JSON.stringify(decision), 'EX', 86400); // Cache for 24 hours
         return decision;
     } catch (error) {
-        console.error('Classification API Error:', error);
+        // Only the failure type: a full error can carry request contents.
+        console.error('Classification API Error:', error?.name ?? 'Unknown', error?.status ?? '');
         return { decision: 'ALLOW', reason: 'Classification error -- defaulting to allow' };
     }
 };
 
 
 // Helper function to clear classification cache for a specific URL and session goal (called when user overrides a block)
-export const clearClassificationCache = async (url, sessionGoal, blockSensitivity) => {
+export const clearClassificationCache = async (url, sessionGoal, blockSensitivity, { pageTitle } = {}) => {
     url = validateURL(url);
     sessionGoal = validateSessionGoal(sessionGoal);
     blockSensitivity = validateBlockSensitivity(blockSensitivity);
 
-    const cacheKey = `classify:${crypto.createHash('sha256').update(`${url}:${sessionGoal}:${blockSensitivity}`).digest('hex')}`;
+    if (pageTitle !== undefined) pageTitle = validatePageTitle(pageTitle);
+
+    const cacheKey = cacheKeyFor(url, sessionGoal, blockSensitivity, pageTitle);
     await redis.del(cacheKey);
 
     // Set the new cache value to ALLOW with reason "User override - cache cleared" so that the user can visit the same site again without getting blocked

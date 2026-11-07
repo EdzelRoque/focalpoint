@@ -40,7 +40,8 @@ router.route('/classify')
           pageTitle,
           pageSnippet,
           sessionGoal,
-          blockSensitivity
+          blockSensitivity,
+          { urlStripped: req.body.urlStripped === true }
         );
         return res.json(result);
       } catch (error) {
