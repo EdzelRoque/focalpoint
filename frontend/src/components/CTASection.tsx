@@ -45,6 +45,8 @@ const CTASection = () => {
             </span>
           </div>
           <p className="text-xs text-muted-foreground">
+            <Link to="/privacy" className="hover:text-foreground">Privacy</Link>
+            {" · "}
             Built by Edzel Roque · © {new Date().getFullYear()}
           </p>
         </div>
