@@ -1,0 +1,10 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Social feed [off-topic]</title></head>
+<body><main id="feed"><p>Post 0: what everyone is talking about right now</p></main>
+<script>
+  // Text never stops changing (feeds, tickers, chat)
+  let n = 0;
+  setInterval(() => {
+    n += 1;
+    document.getElementById('feed').innerHTML = '<p>Post ' + n + ': what everyone is talking about right now</p>';
+  }, 150);
+</script></body></html>

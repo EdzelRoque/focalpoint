@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { User, Bell, Shield, Sliders, Trash2 } from 'lucide-react';
 import axios from 'axios';
 import DashboardLayout from '@/components/DashboardLayout';
+import { useLoginExpiredRedirect } from '@/lib/auth';
 import { toast } from 'sonner';
 
 const sensitivityToString: Record<number, string> = {
@@ -94,6 +95,7 @@ const Settings = () => {
   const [sensitivity, setSensitivity] = useState(1);
   const [weeklyReport, setWeeklyReport] = useState(true);
   const [strictMode, setStrictMode] = useState(false);
+  const handleAuthError = useLoginExpiredRedirect();
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -112,11 +114,12 @@ const Settings = () => {
         );
         setStrictMode(res.data.preferences.strictMode);
       } catch (error) {
+        if (handleAuthError(error)) return;
         toast.error('Failed to load settings');
       }
     };
     fetchSettings();
-  }, []);
+  }, [handleAuthError]);
 
   const handleSave = async () => {
     try {
@@ -133,6 +136,7 @@ const Settings = () => {
         localStorage.setItem('username', username);
         toast.success('Settings saved successfully');
     } catch (error: any) {
+        if (handleAuthError(error)) return;
         toast.error(error.response?.data?.error || 'Failed to save settings');
     }
   };
@@ -179,11 +183,24 @@ const Settings = () => {
             title="Focus preferences"
             description="Tune how FocalPoint blocks distractions"
           >
+            {/* Only Standard ships for now; Lenient/Strict come in a future update.
+                The backend enforces Standard too (backend/config/features.js). */}
             <Field
-              label="Block sensitivity"
+              label={
+                <>
+                  Block sensitivity
+                  <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Coming soon
+                  </span>
+                </>
+              }
               hint={`How aggressively to block: ${SENSITIVITY_LEVELS[sensitivity]}`}
             >
-              <div className="w-full sm:w-64">
+              <div
+                className="pointer-events-none w-full select-none opacity-60 blur-[1px] sm:w-64"
+                aria-disabled="true"
+                data-testid="sensitivity-control"
+              >
                 <input
                   type="range"
                   min={0}
@@ -191,6 +208,8 @@ const Settings = () => {
                   step={1}
                   value={sensitivity}
                   onChange={(e) => setSensitivity(Number(e.target.value))}
+                  disabled
+                  aria-label="Block sensitivity"
                   className="w-full accent-primary"
                 />
                 <div className="mt-1 flex justify-between text-[10px] uppercase tracking-wide text-muted-foreground">

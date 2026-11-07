@@ -125,15 +125,50 @@ const injectBlockOverlay = (reason, strictMode) => {
   });
 
   // Only attach the proceed listener if the button actually exists!
+  // The overlay only comes down once the override is recorded (or the session
+  // turns out to be over). Otherwise it stays up with an error so the user can
+  // retry, and the override is never silently lost from the session stats.
   if (!strictMode) {
-    document.getElementById('fp-proceed').addEventListener('click', () => {
-      chrome.runtime.sendMessage({
-        action: 'override_page',
-        payload: { url: window.location.href },
-      });
-      overlay.remove();
+    const proceed = document.getElementById('fp-proceed');
+    proceed.addEventListener('click', async () => {
+      proceed.disabled = true;
+      let response;
+      try {
+        response = await chrome.runtime.sendMessage({
+          action: 'override_page',
+          payload: { url: window.location.href },
+        });
+      } catch (err) {
+        response = null;
+      }
+
+      if (response && (response.status || response.sessionEnded)) {
+        overlay.remove();
+        return;
+      }
+      showOverrideError(overlay);
+      proceed.disabled = false;
     });
   }
 };
 
-globalThis.fpContentHelpers = { getPageSnippet, injectBlockOverlay };
+const OVERRIDE_ERROR_TEXT = "Couldn't record your override. Check your connection and try again.";
+
+const showOverrideError = (overlay) => {
+  let el = overlay.querySelector('#fp-override-error');
+  if (!el) {
+    el = document.createElement('p');
+    el.id = 'fp-override-error';
+    el.setAttribute('role', 'alert');
+    el.style.cssText = 'font-size: 13px; color: #f87171; margin: 16px 0 0;';
+    overlay.querySelector('#fp-go-back').parentElement.after(el);
+  }
+  el.textContent = OVERRIDE_ERROR_TEXT;
+};
+
+const removeBlockOverlay = () => {
+  const existing = document.getElementById('focalpoint-overlay');
+  if (existing) existing.remove();
+};
+
+globalThis.fpContentHelpers = { getPageSnippet, injectBlockOverlay, removeBlockOverlay, OVERRIDE_ERROR_TEXT };

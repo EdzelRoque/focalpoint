@@ -1,29 +1,16 @@
 import 'dotenv/config';
-import express from 'express';
-import cors from 'cors';
-import configRoutes from './routes/index.js';
-import corsOptions from './middleware/corsConfig.js';
-import { createLimiters } from './middleware/limiters.js';
+import { createApp } from './createApp.js';
 
 if (!process.env.JWT_SECRET || !process.env.ANTHROPIC_API_KEY || !process.env.MONGO_URI) {
     throw new Error('Missing required env vars: JWT_SECRET, ANTHROPIC_API_KEY, MONGO_URI');
 }
 
-const app = express();
-
 // RATE_LIMIT_MAX is an env-gated escape hatch for automated test traffic
 // (the extension journey suite drives real requests far above human rates).
 // Unset in production, so the hardcoded per-route limits apply unchanged.
-const { global: globalLimiter, auth: authLimiter, classify: classifyLimiter } = createLimiters(
-    process.env.RATE_LIMIT_MAX ? { max: Number(process.env.RATE_LIMIT_MAX) } : {},
-);
-app.use('/api/classify', classifyLimiter);
-app.use('/auth', authLimiter);
-app.use(globalLimiter);
-app.use(cors(corsOptions));
-app.use(express.json());
-
-configRoutes(app);
+const app = createApp({
+    limiterOverrides: process.env.RATE_LIMIT_MAX ? { max: Number(process.env.RATE_LIMIT_MAX) } : {},
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

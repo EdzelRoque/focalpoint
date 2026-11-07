@@ -1,4 +1,6 @@
-const BASE_URL = 'https://focalpoint-q8r5.onrender.com';
+// popup.html's scripts share one global scope, so use the helper namespaces
+// directly; destructuring into same-named consts is a redeclaration SyntaxError.
+const BASE_URL = fpConfig.API_BASE_URL;
 
 // DOM elements for each view
 const viewLogin = document.getElementById('view-login');
@@ -50,11 +52,17 @@ const showView = (view) => {
   view.style.display = 'flex';
 };
 
-// Elapsed timer
-const startElapsedTimer = (startTime) => {
+// Elapsed timer. Also watches for the session's end time so the popup returns
+// to the start view the moment a timed session runs out.
+const startElapsedTimer = (session) => {
   if (elapsedInterval) clearInterval(elapsedInterval); // Clear any existing timer
+  const startTime = new Date(session.startTime).getTime();
 
   const update = () => {
+    if (fpSessionHelpers.isSessionExpired(session)) {
+      sessionOver();
+      return;
+    }
     const elapsed = Math.floor((Date.now() - startTime) / 1000);
     timerDisplay.textContent = fpPopupHelpers.formatElapsed(elapsed);
   };
@@ -75,17 +83,65 @@ const loadActiveSession = (session) => {
   activeGoal.textContent = session.sessionGoal;
   statBlocks.textContent = session.blockCount || 0;
   statOverrides.textContent = session.overrideCount || 0;
-  startElapsedTimer(new Date(session.startTime).getTime());
   logoutBtn.style.display = 'block';
   showView(viewActive);
+  startElapsedTimer(session);
+};
+
+// The session ended on its own (time ran out, or the backend says it's over):
+// forget it locally and go back to the start view.
+const sessionOver = async () => {
+  stopElapsedTimer();
+  await chrome.storage.local.remove('activeSession');
+  chrome.runtime.sendMessage({ action: 'session_ended' }).catch(() => {});
+  showView(viewStart);
+};
+
+// Start tracking a session the popup just received from the backend
+const adoptSession = async (session) => {
+  await chrome.storage.local.set({ activeSession: session });
+  // Tell the background service worker a session has started
+  chrome.runtime.sendMessage({ action: 'session_started', session }).catch(() => {});
+  loadActiveSession(session);
+};
+
+// Look up the user's active session on the backend (e.g. one started on
+// another device, or before this extension's storage was cleared).
+const fetchActiveSession = async (token) => {
+  const res = await fetch(`${BASE_URL}/api/sessions`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return null;
+  return fpSessionHelpers.findActiveSession(await res.json());
+};
+
+// Signed-out view after the backend rejected the token (it expired)
+const showLoginExpired = () => {
+  stopElapsedTimer();
+  logoutBtn.style.display = 'none';
+  showView(viewLogin);
+  showError(loginError, fpLoginState.LOGIN_EXPIRED_MESSAGE);
+};
+
+const loginExpired = async () => {
+  await fpLoginState.markLoginExpired();
+  chrome.runtime.sendMessage({ action: 'session_ended' }).catch(() => {});
+  showLoginExpired();
 };
 
 const init = async () => {
-  const storage = await chrome.storage.local.get(['token', 'activeSession']);
+  const storage = await chrome.storage.local.get(['token', 'activeSession', 'loginExpired']);
 
   if (!storage.token) {
     // Not logged in
     showView(viewLogin);
+    if (storage.loginExpired) showLoginExpired();
+    return;
+  }
+
+  if (storage.activeSession && fpSessionHelpers.isSessionExpired(storage.activeSession)) {
+    logoutBtn.style.display = 'block';
+    await sessionOver();
     return;
   }
 
@@ -134,7 +190,15 @@ loginForm.addEventListener('submit', async (event) => {
     }
 
     await chrome.storage.local.set({ token: data.token });
+    await fpLoginState.clearLoginExpired();
     logoutBtn.style.display = 'block';
+
+    // Pick up a session that is already running for this account
+    const running = await fetchActiveSession(data.token).catch(() => null);
+    if (running) {
+      await adoptSession(running);
+      return;
+    }
     showView(viewStart);
   } catch (err) {
     showError(loginError, 'An error occurred. Please try again.');
@@ -144,7 +208,7 @@ loginForm.addEventListener('submit', async (event) => {
 // Register link logic
 registerLink.addEventListener('click', (event) => {
   event.preventDefault();
-  chrome.tabs.create({ url: `https://focalpoint-rho.vercel.app/register` });
+  chrome.tabs.create({ url: `${fpConfig.DASHBOARD_URL}/register` });
 });
 
 // Session start logic
@@ -178,7 +242,21 @@ sessionForm.addEventListener('submit', async (event) => {
         durationInMinutes: sessionCheck.duration
       }),
     });
+    if (res.status === 401) {
+      await loginExpired();
+      return;
+    }
     const data = await res.json();
+
+    // A session is already running for this account: resume it instead of
+    // leaving the user stuck behind "You already have an active session".
+    if (res.status === 409) {
+      const running = await fetchActiveSession(token).catch(() => null);
+      if (running) {
+        await adoptSession(running);
+        return;
+      }
+    }
 
     if (!res.ok) {
       showError(
@@ -189,12 +267,7 @@ sessionForm.addEventListener('submit', async (event) => {
     }
 
     // Store session in chrome.storage so background.js can access it
-    await chrome.storage.local.set({ activeSession: data });
-
-    // Tell the background service worker a session has started
-    chrome.runtime.sendMessage({ action: 'session_started', session: data });
-
-    loadActiveSession(data);
+    await adoptSession(data);
   } catch (err) {
     showError(startError, 'An error occurred. Please try again.');
   }
@@ -216,7 +289,17 @@ endSessionBtn.addEventListener('click', async () => {
       method: 'PUT',
       headers: { Authorization: `Bearer ${token}` },
     });
+    if (res.status === 401) {
+      await loginExpired();
+      return;
+    }
     const data = await res.json();
+
+    // Already ended (its time ran out, or it was ended elsewhere)
+    if (res.status === 409) {
+      await sessionOver();
+      return;
+    }
 
     if (!res.ok) {
       showError(
@@ -260,6 +343,7 @@ logoutBtn.addEventListener('click', async () => {
   }
 
   await chrome.storage.local.clear();
+  await fpLoginState.clearLoginExpired();
   logoutBtn.style.display = 'none';
   showView(viewLogin);
 });
@@ -273,5 +357,17 @@ chrome.runtime.onMessage.addListener((message) => {
 
     statBlocks.textContent = message.stats.blockCount || 0;
     statOverrides.textContent = message.stats.overrideCount || 0;
+  }
+
+  // The background ended the session (its time ran out, or the login expired)
+  if (message.action === 'session_ended') {
+    chrome.storage.local.get(['token', 'loginExpired']).then(({ token, loginExpired: expired }) => {
+      if (!token && expired) {
+        showLoginExpired();
+      } else if (viewActive.style.display !== 'none') {
+        stopElapsedTimer();
+        showView(viewStart);
+      }
+    });
   }
 });

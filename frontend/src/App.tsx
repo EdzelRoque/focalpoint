@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard.tsx";
 import Sessions from './pages/Sessions.tsx';
 import Settings from './pages/Settings.tsx';
 import NotFound from "./pages/NotFound.tsx";
+import RequireAuth from "./components/RequireAuth.tsx";
 
 const queryClient = new QueryClient();
 
@@ -23,9 +24,9 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/dashboard/sessions" element={<Sessions />} />
-          <Route path="/dashboard/settings" element={<Settings />} />
+          <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+          <Route path="/dashboard/sessions" element={<RequireAuth><Sessions /></RequireAuth>} />
+          <Route path="/dashboard/settings" element={<RequireAuth><Settings /></RequireAuth>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

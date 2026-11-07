@@ -19,13 +19,16 @@ jobs:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: backend/package-lock.json
+      # npm install, not ci: backend/package-lock.json is out of sync with package.json
       - run: npm install
-      - run: npx vitest run --passWithNoTests
+      # Real in-memory MongoDB, fake Claude, fake Redis. The live Claude eval
+      # (npm run eval) is opt-in and never runs here.
+      - run: npm test
 
   extension-test:
     runs-on: ubuntu-latest
-    # Journey tests (Playwright) run a real local backend whose classification
-    # cache needs a real Redis; the harness uses db index 15 on it.
+    # Journey tests run the real backend, whose classification cache needs a
+    # real Redis; the harness uses db index 15 on it.
     services:
       redis:
         image: redis:7
@@ -40,17 +43,36 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: extension/package-lock.json
+          cache-dependency-path: |
+            extension/package-lock.json
+            backend/package-lock.json
       - run: npm ci
-      - run: npx vitest run
+      - run: npm run test:unit
       # The journey harness spawns the real backend (node app.js), so the
       # backend's dependencies must be installed too.
       - run: npm install
         working-directory: backend
       - run: npx playwright install --with-deps chromium
-      - run: |
-          if find tests -name "*.spec.js" | grep -q .; then
-            xvfb-run --auto-servernum npm test
-          else
-            echo "No test files found, skipping."
-          fi
+      - run: xvfb-run --auto-servernum npm test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: journey-results
+          path: |
+            extension/test-results
+            extension/test/.tmp/backend.log
+
+  frontend-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test

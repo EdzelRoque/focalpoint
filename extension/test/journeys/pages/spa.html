@@ -1,0 +1,10 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Video player: Organic chemistry lecture</title></head>
+<body><main id="content"><h1>Lecture 5</h1><p>Organic chemistry lecture on SN1 and SN2 reaction mechanisms.</p></main>
+<script>
+  // In-place navigation like YouTube: URL, title and content change without a page load
+  window.goOffTopic = () => {
+    history.pushState({}, '', 'spa.html?v=cats');
+    document.title = 'Video player: Cat bloopers [off-topic]';
+    document.getElementById('content').innerHTML = '<h1>Cat bloopers</h1><p>Cats falling off of things, compilation number seven.</p>';
+  };
+</script></body></html>

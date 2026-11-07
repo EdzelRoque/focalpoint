@@ -36,6 +36,7 @@ router.route('/classify')
       // Call the classify function from classificationData
       try {
         const result = await classificationData.classify(
+          userId,
           url,
           pageTitle,
           pageSnippet,

@@ -1,12 +1,14 @@
 import redis from '../config/redisConnection.js';
 import { Anthropic } from "@anthropic-ai/sdk";
 import crypto from 'crypto';
+import { effectiveSensitivity } from '../config/features.js';
 import { 
   validateURL, 
   validatePageTitle, 
   validatePageSnippet, 
   validateSessionGoal,
-  validateBlockSensitivity
+  validateBlockSensitivity,
+  validateId
  } from "../validation.js";
 
 const client = new Anthropic({
@@ -20,7 +22,8 @@ const withoutQueryOrFragment = (url) => {
     return parsed.origin + parsed.pathname;
 };
 
-const callClaude = async (url, pageTitle, pageSnippet, sessionGoal, blockSensitivity) => {
+// Exported for the opt-in live eval (evals/classify.eval.js); the app uses classify().
+export const callClaude = async (url, pageTitle, pageSnippet, sessionGoal, blockSensitivity) => {
     let sensitivityInstructions = '';
 
     switch (blockSensitivity) {
@@ -84,28 +87,43 @@ const callClaude = async (url, pageTitle, pageSnippet, sessionGoal, blockSensiti
       return parsed;
 };
 
-export const classify = async (url, pageTitle, pageSnippet, sessionGoal, blockSensitivity) => {
-    // Validate url, pageTitle, pageSnippet, sessionGoal, blockSensitivity
+const keyHash = (url, sessionGoal, blockSensitivity) =>
+    crypto.createHash('sha256').update(`${url}:${sessionGoal}:${blockSensitivity}`).digest('hex');
+
+// Claude's decisions are shared by everyone with the same URL + goal +
+// sensitivity (saves API calls). Overrides are personal: they live under a
+// per-user key and never touch the shared entry, so one user's "Proceed
+// anyway" can't unblock a page for anyone else.
+const sharedKey = (url, sessionGoal, blockSensitivity) =>
+    `classify:${keyHash(url, sessionGoal, blockSensitivity)}`;
+const overrideKey = (userId, url, sessionGoal, blockSensitivity) =>
+    `override:${userId}:${keyHash(url, sessionGoal, blockSensitivity)}`;
+
+const DAY_SECONDS = 86400;
+
+export const classify = async (userId, url, pageTitle, pageSnippet, sessionGoal, blockSensitivity) => {
+    userId = validateId(userId);
     url = validateURL(url);
     pageTitle = validatePageTitle(pageTitle);
     pageSnippet = validatePageSnippet(pageSnippet);
     sessionGoal = validateSessionGoal(sessionGoal);
-    blockSensitivity = validateBlockSensitivity(blockSensitivity);
+    blockSensitivity = effectiveSensitivity(validateBlockSensitivity(blockSensitivity));
+
+    // This user's own override wins over everything
+    const overridden = await redis.get(overrideKey(userId, url, sessionGoal, blockSensitivity));
+    if (overridden) return JSON.parse(overridden);
 
     // Check Redis cache for existing classification result
-    const cacheKey = `classify:${crypto.createHash('sha256').update(`${url}:${sessionGoal}:${blockSensitivity}`).digest('hex')}`;
+    const cacheKey = sharedKey(url, sessionGoal, blockSensitivity);
     const cached = await redis.get(cacheKey);
-    if (cached) {
-        const parsed = JSON.parse(cached);
-        return parsed;
-    }
+    if (cached) return JSON.parse(cached);
 
     // Cache miss, proceed to classify the text. Fail open on any error
     // (network, malformed JSON, etc.) but do NOT cache the fail-open result —
     // a transient failure shouldn't poison the cache for 24h.
     try {
         const decision = await callClaude(url, pageTitle, pageSnippet, sessionGoal, blockSensitivity);
-        await redis.set(cacheKey, JSON.stringify(decision), 'EX', 86400); // Cache for 24 hours
+        await redis.set(cacheKey, JSON.stringify(decision), 'EX', DAY_SECONDS);
         return decision;
     } catch (error) {
         // Only the type and status: a full error can carry request contents.
@@ -114,17 +132,14 @@ export const classify = async (url, pageTitle, pageSnippet, sessionGoal, blockSe
     }
 };
 
-
-// Helper function to clear classification cache for a specific URL and session goal (called when user overrides a block)
-export const clearClassificationCache = async (url, sessionGoal, blockSensitivity) => {
+// Called when a user overrides a block: allow this page for THIS user (same
+// goal + sensitivity) for 24 hours.
+export const recordOverride = async (userId, url, sessionGoal, blockSensitivity) => {
+    userId = validateId(userId);
     url = validateURL(url);
     sessionGoal = validateSessionGoal(sessionGoal);
-    blockSensitivity = validateBlockSensitivity(blockSensitivity);
+    blockSensitivity = effectiveSensitivity(validateBlockSensitivity(blockSensitivity));
 
-    const cacheKey = `classify:${crypto.createHash('sha256').update(`${url}:${sessionGoal}:${blockSensitivity}`).digest('hex')}`;
-    await redis.del(cacheKey);
-
-    // Set the new cache value to ALLOW with reason "User override - cache cleared" so that the user can visit the same site again without getting blocked
-    const newDecision = { decision: 'ALLOW', reason: 'User overrode this page\'s block' };
-    await redis.set(cacheKey, JSON.stringify(newDecision), 'EX', 86400);
-}
+    const decision = { decision: 'ALLOW', reason: "User overrode this page's block" };
+    await redis.set(overrideKey(userId, url, sessionGoal, blockSensitivity), JSON.stringify(decision), 'EX', DAY_SECONDS);
+};

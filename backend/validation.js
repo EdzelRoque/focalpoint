@@ -1,5 +1,8 @@
 import { ObjectId } from 'mongodb';
 
+// Matches the extension popup's limit (extension/lib/popup-helpers.js).
+export const MAX_SESSION_MINUTES = 480;
+
 
 // HELPERS FOR VALIDATION FUNCTIONS
 
@@ -63,8 +66,9 @@ const validateId = (id) => {
 const validateTimeDuration = (duration) => {
     if (duration === undefined || duration === null) throw 'You must provide a time duration';
     if (typeof duration !== 'number' || Number.isNaN(duration)) throw 'Time duration must be a number';
+    if (!Number.isInteger(duration)) throw 'Time duration must be a whole number of minutes';
     if (duration <= 0) throw 'Time duration must be a positive number';
-    if (duration > 1440) throw 'Time duration must be at most 1440 minutes (24 hours)';
+    if (duration > MAX_SESSION_MINUTES) throw `Time duration must be at most ${MAX_SESSION_MINUTES} minutes (8 hours)`;
     return duration;
 };
 
