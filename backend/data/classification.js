@@ -13,6 +13,13 @@ const client = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY
 });
 
+// Query strings and fragments can hold reset tokens and search terms, so they
+// never go to Claude. The page title tells it which page this is.
+const withoutQueryOrFragment = (url) => {
+    const parsed = new URL(url);
+    return parsed.origin + parsed.pathname;
+};
+
 const callClaude = async (url, pageTitle, pageSnippet, sessionGoal, blockSensitivity) => {
     let sensitivityInstructions = '';
 
@@ -59,7 +66,7 @@ const callClaude = async (url, pageTitle, pageSnippet, sessionGoal, blockSensiti
         messages: [
           {
             role: 'user',
-            content: `User's goal: ${sessionGoal}\n\nPage URL: ${url}\nPage title: ${pageTitle}\nPage content snippet: ${pageSnippet}\n\nIs this page relevant to the user's goal?`,
+            content: `User's goal: ${sessionGoal}\n\nPage URL: ${withoutQueryOrFragment(url)}\nPage title: ${pageTitle}\nPage content snippet: ${pageSnippet}\n\nIs this page relevant to the user's goal?`,
           },
         ],
       });
@@ -70,7 +77,6 @@ const callClaude = async (url, pageTitle, pageSnippet, sessionGoal, blockSensiti
       
       // Parse the JSON response
       const parsed = JSON.parse(text);
-      console.log('Claude response:', parsed);
 
       if (!parsed.decision || !['ALLOW', 'BLOCK'].includes(parsed.decision)) {
         throw 'Invalid decision format';
@@ -91,7 +97,6 @@ export const classify = async (url, pageTitle, pageSnippet, sessionGoal, blockSe
     const cached = await redis.get(cacheKey);
     if (cached) {
         const parsed = JSON.parse(cached);
-        console.log('Cached:', parsed);
         return parsed;
     }
 
@@ -103,7 +108,8 @@ export const classify = async (url, pageTitle, pageSnippet, sessionGoal, blockSe
         await redis.set(cacheKey, JSON.stringify(decision), 'EX', 86400); // Cache for 24 hours
         return decision;
     } catch (error) {
-        console.error('Classification API Error:', error);
+        // Only the type and status: a full error can carry request contents.
+        console.error('Classification API Error:', error?.name ?? 'Unknown', error?.status ?? '');
         return { decision: 'ALLOW', reason: 'Classification error -- defaulting to allow' };
     }
 };
