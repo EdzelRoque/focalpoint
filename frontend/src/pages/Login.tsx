@@ -8,6 +8,8 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const successMessage = location.state?.message;
+  // "warning" = sent here because the login expired (see src/lib/auth.ts)
+  const isWarning = location.state?.tone === "warning";
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -56,7 +58,14 @@ const Login = () => {
         {/* Success Message + Error Message Box */}
         <div className="w-full max-w-sm">
           {successMessage && (
-            <div className="mb-4 rounded-lg border border-green-500/20 bg-green-500/10 p-3 text-sm text-green-500">
+            <div
+              role="status"
+              className={
+                isWarning
+                  ? "mb-4 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-500"
+                  : "mb-4 rounded-lg border border-green-500/20 bg-green-500/10 p-3 text-sm text-green-500"
+              }
+            >
               {successMessage}
             </div>
           )}

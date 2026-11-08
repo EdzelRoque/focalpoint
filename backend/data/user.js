@@ -1,6 +1,7 @@
 import { users } from '../config/mongoCollections.js';
 import { ObjectId } from 'mongodb';
 import bcrypt from 'bcrypt';
+import { effectiveSensitivity } from '../config/features.js';
 import { 
     validateUsername, 
     validateEmail, 
@@ -8,6 +9,10 @@ import {
     validateId,
     validateBlockSensitivity
 } from '../validation.js';
+
+// Usernames are unique regardless of case ("Bob" and "bob" can't both exist),
+// but are stored and shown exactly as typed.
+const CASE_INSENSITIVE = { locale: 'en', strength: 2 };
 
 const defaultPreferences = {
     blockSensitivity: "standard",
@@ -24,7 +29,7 @@ export const register = async (username, email, password) => {
     password = validatePassword(password);
 
     // Check if the username, email is already taken/registered
-    const existingUsername = await userCollection.findOne({ username: username });
+    const existingUsername = await userCollection.findOne({ username: username }, { collation: CASE_INSENSITIVE });
     const existingEmail = await userCollection.findOne({ email: email });
 
     if (existingUsername) throw 'Username is already taken';
@@ -74,7 +79,10 @@ export const login = async (email, password) => {
         _id: user._id.toString(),
         username: user.username,
         email: user.email,
-        preferences: user.preferences
+        preferences: {
+            ...user.preferences,
+            blockSensitivity: effectiveSensitivity(user.preferences.blockSensitivity),
+        }
     };
 };
 
@@ -86,14 +94,15 @@ export const updateUserSettings = async (userId, username, email, blockSensitivi
     userId = validateId(userId);
     username = validateUsername(username);
     email = validateEmail(email);
-    blockSensitivity = validateBlockSensitivity(blockSensitivity);
+    // Unreleased levels are accepted but stored as the released default
+    blockSensitivity = effectiveSensitivity(validateBlockSensitivity(blockSensitivity));
     if (typeof strictMode !== 'boolean') throw 'strictMode must be a boolean';
     
     // Check if the NEW username or email is already taken by a DIFFERENT user
-    const existingUsername = await userCollection.findOne({ 
-        username: username, 
-        _id: { $ne: new ObjectId(userId) } 
-    });
+    const existingUsername = await userCollection.findOne({
+        username: username,
+        _id: { $ne: new ObjectId(userId) }
+    }, { collation: CASE_INSENSITIVE });
     if (existingUsername) throw 'Username is already taken';
 
     const existingEmail = await userCollection.findOne({ 

@@ -87,6 +87,12 @@ init();
 
 // Listeners -- this is for messages from background.js to trigger classification on a tab change or SPA navigation
 chrome.runtime.onMessage.addListener((message) => {
+  // The session ran out: nothing is blocked any more
+  if (message.action === 'session_ended') {
+    fpContentHelpers.removeBlockOverlay();
+    return;
+  }
+
   if (message.action === 'tab_change') {
     const existing = document.getElementById('focalpoint-overlay');
     if (existing) existing.remove();

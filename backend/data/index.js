@@ -1,6 +1,6 @@
 import { register, login, updateUserSettings } from './user.js';
 import { createSession, endSession, getSessionsByUserId, getSessionById, incrementBlockCount, incrementOverrideCount } from './session.js';
-import { classify, clearClassificationCache } from './classification.js';
+import { classify, recordOverride } from './classification.js';
 
 export const userData = {
     register,
@@ -10,7 +10,7 @@ export const userData = {
 
 export const classificationData = {
     classify,
-    clearClassificationCache
+    recordOverride
 };
 
 export const sessionData = {

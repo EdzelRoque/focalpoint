@@ -21,6 +21,7 @@ import {
 } from 'recharts';
 import DashboardLayout from '@/components/DashboardLayout';
 import { getWeekBounds } from '@/lib/weekBounds';
+import { useLoginExpiredRedirect } from '@/lib/auth';
 
 const StatCard = ({
   icon: Icon,
@@ -45,6 +46,7 @@ const StatCard = ({
 
 const Dashboard = () => {
   const [sessions, setSessions] = useState<any[]>([]);
+  const handleAuthError = useLoginExpiredRedirect();
 
   useEffect(() => {
     async function fetchSessions() {
@@ -58,11 +60,12 @@ const Dashboard = () => {
 
         setSessions(data);
       } catch (error) {
+        if (handleAuthError(error)) return;
         console.error('Failed to fetch sessions:', error);
       }
     }
     fetchSessions();
-  }, []);
+  }, [handleAuthError]);
 
   // Calculate dynamic stats from the sessions array
   let totalMinutes = 0;

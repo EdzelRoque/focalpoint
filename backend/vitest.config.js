@@ -3,8 +3,11 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'node',
-    globals: true,
-    globalSetup: ['./test/globalSetup.js'],
+    include: ['test/**/*.test.js'],
+    globalSetup: ['./test/setup/globalSetup.js'],
+    setupFiles: ['./test/setup/perFile.js'],
+    // One shared in-memory MongoDB: files must not run concurrently.
     fileParallelism: false,
+    testTimeout: 15_000,
   },
 });

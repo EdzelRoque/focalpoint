@@ -42,7 +42,8 @@ router.route('/sessions')
         try {
             userId = validateId(userId);
             sessionGoal = validateSessionGoal(sessionGoal);
-            if (durationInMinutes) {
+            // Missing/null means an open-ended session; anything else (0 included) must be valid.
+            if (durationInMinutes !== undefined && durationInMinutes !== null) {
                 durationInMinutes = validateTimeDuration(durationInMinutes);
             }
         } catch (error) {
@@ -179,8 +180,8 @@ router.route('/sessions/:id/override')
             }
             const updatedSession = await sessionData.incrementOverrideCount(sessionId);
 
-            // Clear the Redis cache for this URL+goal+blockSensitivity so next visit will auto allow
-            await classificationData.clearClassificationCache(url, sessionGoal, blockSensitivity);
+            // Allow this URL+goal+blockSensitivity for this user only, so their next visit isn't re-blocked
+            await classificationData.recordOverride(userId, url, sessionGoal, blockSensitivity);
 
             return res.json(updatedSession);
         } catch (error) {

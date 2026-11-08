@@ -10,6 +10,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
+import { useLoginExpiredRedirect } from '@/lib/auth';
 
 const formatDate = (dateString: string) => {
   const d = new Date(dateString);
@@ -40,6 +41,7 @@ const Sessions = () => {
   );
   const [page, setPage] = useState(1);
   const [sessions, setSessions] = useState<any[]>([]);
+  const handleAuthError = useLoginExpiredRedirect();
 
   useEffect(() => {
     const fetchSessions = async () => {
@@ -58,11 +60,12 @@ const Sessions = () => {
         );
         setSessions(sorted);
       } catch (error) {
+        if (handleAuthError(error)) return;
         console.error('Failed to fetch sessions');
       }
     };
     fetchSessions();
-  }, []);
+  }, [handleAuthError]);
 
   const filtered = sessions.filter((s) => {
     const matchesQuery = s.sessionGoal.toLowerCase().includes(query.toLowerCase());

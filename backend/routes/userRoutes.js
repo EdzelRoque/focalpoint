@@ -4,6 +4,7 @@ import { users } from '../config/mongoCollections.js';
 import { ObjectId } from 'mongodb';
 import authMiddleware from '../middleware/auth.js';
 import jwt from 'jsonwebtoken';
+import { effectiveSensitivity } from '../config/features.js';
 import { 
     validateUsername, 
     validateEmail, 
@@ -132,7 +133,10 @@ router.route('/me')
             return res.json({
                 username: user.username,
                 email: user.email,
-                preferences: user.preferences
+                preferences: {
+                    ...user.preferences,
+                    blockSensitivity: effectiveSensitivity(user.preferences.blockSensitivity),
+                }
             });
         } catch (error) {
             return res.status(500).json({ error: 'Server error' });

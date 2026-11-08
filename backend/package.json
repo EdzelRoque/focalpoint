@@ -9,11 +9,8 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
+    "eval": "vitest run --config vitest.eval.config.js",
     "start": "node app.js"
-  },
-  "vitest": {
-    "environment": "node",
-    "globals": true
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.87.0",
