@@ -12,7 +12,14 @@ const boot = (env) =>
   new Promise((resolve) => {
     const child = spawn(process.execPath, ['app.js'], {
       cwd: backendRoot,
-      env: { PATH: process.env.PATH, SYSTEMROOT: process.env.SYSTEMROOT, ...env },
+      // Point dotenv at a file that doesn't exist, so a developer's backend/.env
+      // can't fill in the vars these tests leave out on purpose.
+      env: {
+        PATH: process.env.PATH,
+        SYSTEMROOT: process.env.SYSTEMROOT,
+        DOTENV_CONFIG_PATH: path.join(backendRoot, '.env.startup-test-none'),
+        ...env,
+      },
     });
     let output = '';
     const done = (result) => { child.kill(); resolve({ ...result, output }); };
