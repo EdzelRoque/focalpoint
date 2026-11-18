@@ -37,6 +37,10 @@ const showError = (el, message) => {
   el.style.display = 'block';
 };
 
+// The JSON body of a backend reply, or {} when it has none (a rate-limit
+// message, a proxy's HTML error page), so the caller still sees the status.
+const readJson = (res) => res.json().catch(() => ({}));
+
 const hideError = (el) => {
   el.textContent = '';
   el.style.display = 'none';
@@ -182,7 +186,7 @@ loginForm.addEventListener('submit', async (event) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-    const data = await res.json();
+    const data = await readJson(res);
 
     if (!res.ok) {
       showError(loginError, data.error || 'Login failed. Please try again.');
@@ -246,7 +250,7 @@ sessionForm.addEventListener('submit', async (event) => {
       await loginExpired();
       return;
     }
-    const data = await res.json();
+    const data = await readJson(res);
 
     // A session is already running for this account: resume it instead of
     // leaving the user stuck behind "You already have an active session".
@@ -293,7 +297,7 @@ endSessionBtn.addEventListener('click', async () => {
       await loginExpired();
       return;
     }
-    const data = await res.json();
+    const data = await readJson(res);
 
     // Already ended (its time ran out, or it was ended elsewhere)
     if (res.status === 409) {
