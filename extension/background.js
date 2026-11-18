@@ -20,23 +20,24 @@ const broadcastSessionEnded = async () => {
     chrome.runtime.sendMessage({ action: 'session_ended' }).catch(() => {});
 };
 
+// Removing activeSession from storage takes overlays down (storage.onChanged
+// below), so only broadcast here when storage had nothing left to remove.
 const endSessionLocally = async () => {
     const { activeSession: stored } = await chrome.storage.local.get('activeSession');
     activeSession = null;
     await chrome.alarms.clear(EXPIRY_ALARM);
-    // Removing an expired session already broadcasts (storage.onChanged below);
-    // any other ending (backend said 409) broadcasts here.
     await chrome.storage.local.remove('activeSession');
-    if (!isSessionExpired(stored)) await broadcastSessionEnded();
+    if (!stored) await broadcastSessionEnded();
 };
 
 // The backend rejected the token (401): sign out, flag it on the toolbar icon,
 // and take down any overlays, since nothing is blocked while signed out.
 const loginExpired = async () => {
+    const { activeSession: stored } = await chrome.storage.local.get('activeSession');
     activeSession = null;
     await chrome.alarms.clear(EXPIRY_ALARM);
-    await globalThis.fpLoginState.markLoginExpired();
-    await broadcastSessionEnded();
+    await globalThis.fpLoginState.markLoginExpired(); // removes activeSession
+    if (!stored) await broadcastSessionEnded();
 };
 
 // Fires at expectedEndTime so blocking stops even if the user is idle.
@@ -75,9 +76,10 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     const { oldValue, newValue } = changes.activeSession;
     activeSession = newValue ?? null;
     scheduleExpiry(activeSession);
-    // The popup can notice expiry first and clear storage itself; overlays
-    // must still come down everywhere.
-    if (!newValue && oldValue && isSessionExpired(oldValue)) broadcastSessionEnded();
+    // However the session ended (time ran out, End session, Log out, an
+    // expired login, the backend's 409), and whichever context removed it,
+    // nothing is blocked any more: take overlays down everywhere.
+    if (!newValue && oldValue) broadcastSessionEnded();
 });
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
@@ -85,15 +87,26 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     await getActiveSession(); // ends it if expired
 });
 
-// Persist updated counts and push them to the popup. Fire-and-forget message:
-// it rejects whenever the popup is closed (no receiving end).
-const saveStats = async (session) => {
-    await chrome.storage.local.set({ activeSession: session });
+// Count a recorded block/override locally and push it to the popup. Only if
+// that session is still the active one: it may have ended while the request
+// was in flight, and writing it back would revive it. The check and the write
+// run in one turn of the event loop, so no storage change can slip between.
+// Fire-and-forget message: it rejects whenever the popup is closed.
+const bumpStat = async (sessionId, field) => {
+    const current = await getActiveSession();
+    if (!current || current._id !== sessionId) return;
+    current[field] = (current[field] || 0) + 1;
+    const save = chrome.storage.local.set({ activeSession: current });
     chrome.runtime.sendMessage({
         action: 'stats_update',
-        stats: { blockCount: session.blockCount, overrideCount: session.overrideCount },
+        stats: { blockCount: current.blockCount, overrideCount: current.overrideCount },
     }).catch(() => {});
+    await save;
 };
+
+// The JSON body of a backend reply, or {} when it has none (a rate-limit
+// message, a proxy's HTML error page).
+const readJson = (res) => res.json().catch(() => ({}));
 
 const classifyPage = async (payload) => {
     const session = await getActiveSession();
@@ -118,8 +131,8 @@ const classifyPage = async (payload) => {
         await loginExpired();
         return { error: 'Not authenticated' };
     }
-    const data = await res.json();
-    if (!res.ok) return { error: data.error };
+    const data = await readJson(res);
+    if (!res.ok) return { error: data.error || `Classify failed: ${res.status}` };
 
     if (data.decision === 'BLOCK') {
         const blockRes = await fetch(`${BASE_URL}/api/sessions/${session._id}/block`, {
@@ -128,8 +141,7 @@ const classifyPage = async (payload) => {
         });
 
         if (blockRes.ok) {
-            session.blockCount += 1;
-            await saveStats(session);
+            await bumpStat(session._id, 'blockCount');
         } else if (blockRes.status === 401) {
             await loginExpired();
             return { error: 'Not authenticated' };
@@ -167,8 +179,7 @@ const overridePage = async (payload) => {
     });
 
     if (overrideRes.ok) {
-        session.overrideCount += 1;
-        await saveStats(session);
+        await bumpStat(session._id, 'overrideCount');
         return { status: 'Override logged' };
     }
     if (overrideRes.status === 409) {

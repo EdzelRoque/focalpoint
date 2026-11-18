@@ -215,6 +215,16 @@ describe('ending a session', () => {
     expect(popupView()).toBe('start');
   });
 
+  it('shows a retry message, not a crash, when the error reply is not JSON', async () => {
+    const env = await loadPopup({ storage: { token: 'tok', activeSession: session() } });
+    vi.stubGlobal('fetch', async () => new Response('<html>502 Bad Gateway</html>', { status: 502 }));
+    $('end-btn').click();
+    await settle();
+    expect($('end-error').textContent).toBe('Failed to end session. Please try again.');
+    expect(popupView()).toBe('active');
+    expect(env.chrome.storageData().activeSession).toBeDefined();
+  });
+
   it('treats "already ended" (409) as ended', async () => {
     const env = await loadPopup({ storage: { token: 'tok', activeSession: session() }, routes: {
       'PUT /api/sessions/:id': { status: 409, json: { error: 'Session is already ended' } },

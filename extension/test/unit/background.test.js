@@ -90,6 +90,26 @@ describe('classifying a page', () => {
     expect(res.decision).toBeUndefined();
   });
 
+  it('does not revive a session that was ended while its block was being recorded', async () => {
+    const { chrome, backend } = await loadBackground({ storage: loggedIn() });
+    backend.on('POST /api/classify', { json: { decision: 'BLOCK', reason: 'Cats.' } });
+    backend.on('POST /api/sessions/:id/block', async () => {
+      // Recorded on the backend; before the reply arrives, the student ends the session
+      await chrome.storage.local.remove('activeSession');
+      await chrome.deliver({ action: 'session_ended' });
+      return { json: { success: true } };
+    });
+    await classify(chrome);
+    await settle();
+    expect(chrome.storageData().activeSession).toBeUndefined();
+  });
+
+  it('reports the status when an error reply is not JSON (rate limit), and does not block', async () => {
+    const { chrome } = await loadBackground({ storage: loggedIn() });
+    vi.stubGlobal('fetch', async () => new Response('Too many requests, please try again later.', { status: 429 }));
+    expect(await classify(chrome)).toEqual({ error: 'Classify failed: 429' });
+  });
+
   it('rejects a malformed payload', async () => {
     const { chrome } = await loadBackground({ storage: loggedIn() });
     expect(await classify(chrome, { url: 'https://x.com' })).toEqual({ error: 'Invalid message payload' });
@@ -185,13 +205,37 @@ describe('auto-end when the duration runs out', () => {
     expect(chrome.sentToTabs.filter((m) => m.msg.action === 'session_ended')).toHaveLength(2);
   });
 
-  it('manual end: does not message tabs (overlays already shown stay until navigation)', async () => {
-    const { chrome } = await loadBackground({ storage: loggedIn() });
+});
+
+describe('ending a session any other way takes overlays down in every tab', () => {
+  const takeDowns = (chrome) =>
+    chrome.sentToTabs.filter((m) => m.msg.action === 'session_ended').map((m) => m.tabId);
+
+  it('End session in the popup (strict-mode overlays have no Proceed button)', async () => {
+    const { chrome } = await loadBackground({ storage: loggedIn(session({ strictMode: true })) });
+    // What popup.js does after PUT /api/sessions/:id succeeds
     await chrome.storage.local.remove('activeSession');
+    await chrome.deliver({ action: 'session_ended', session: { success: true } });
+    await settle();
+    expect(takeDowns(chrome)).toEqual([1, 2]);
+    expect(chrome.alarms.all.size).toBe(0);
+  });
+
+  it('Log out in the popup', async () => {
+    const { chrome } = await loadBackground({ storage: loggedIn() });
+    await chrome.storage.local.clear(); // what popup.js does on Log out
+    await settle();
+    expect(takeDowns(chrome)).toEqual([1, 2]);
+  });
+
+  it('an expired login noticed by the popup (401 on End session)', async () => {
+    const { chrome } = await loadBackground({ storage: loggedIn() });
+    // What popup.js loginExpired() does
+    await globalThis.fpLoginState.markLoginExpired();
     await chrome.deliver({ action: 'session_ended' });
     await settle();
-    expect(chrome.sentToTabs).toHaveLength(0);
-    expect(chrome.alarms.all.size).toBe(0);
+    expect(chrome.storageData().loginExpired).toBe(true);
+    expect(takeDowns(chrome)).toEqual([1, 2]);
   });
 });
 
