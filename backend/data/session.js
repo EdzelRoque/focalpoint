@@ -143,21 +143,30 @@ export const getSessionsByUserId = async (userId) => {
 };
 
 // Shared by block/override: increments a counter on an ACTIVE session only.
+// The happy path is one guarded update; the session is only looked up again
+// when that update matched nothing, to say why.
 const incrementCounter = async (sessionId, field) => {
     const sessionCollection = await sessions();
     sessionId = validateId(sessionId);
-    await expireOverdue({ _id: new ObjectId(sessionId) });
-
-    const session = await sessionCollection.findOne({ _id: new ObjectId(sessionId) });
-    if (!session) throw 'Session not found';
-    if (!session.isActive) throw 'Session is already ended';
+    const _id = new ObjectId(sessionId);
 
     const updateInfo = await sessionCollection.updateOne(
-        { _id: new ObjectId(sessionId), isActive: true },
+        {
+            _id,
+            isActive: true,
+            // Not past its end time, even if no read has closed it yet
+            $or: [{ expectedEndTime: null }, { expectedEndTime: { $gt: new Date() } }],
+        },
         { $inc: { [field]: 1 } }
     );
     if (!updateInfo.acknowledged) throw `Could not increment ${field === 'blockCount' ? 'block' : 'override'} count`;
-    if (updateInfo.matchedCount === 0) throw 'Session is already ended';
+
+    if (updateInfo.matchedCount === 0) {
+        await expireOverdue({ _id });
+        const session = await sessionCollection.findOne({ _id });
+        if (!session) throw 'Session not found';
+        throw 'Session is already ended';
+    }
 
     return { success: true };
 };

@@ -1,8 +1,10 @@
 // Focus-session lifecycle: start, one-at-a-time, duration rules, auto-end at
 // expiry, manual end, and the block/override counters behind session stats.
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Collection } from 'mongodb';
 import { newApp, signUp, startSession, GOAL } from './support/api.js';
 import { rawSession, backdateSession, setStoredPreferences } from './support/db.js';
+import { fakeRedis } from './support/fakeRedis.js';
 
 let api, me;
 beforeEach(async () => {
@@ -218,6 +220,42 @@ describe('session stats (never lose a count)', () => {
     expect((await api.post(`/api/sessions/${s._id}/override`).set(me.auth)
       .send({ url: 'not a url', sessionGoal: GOAL, blockSensitivity: 'standard' })).status).toBe(400);
     expect((await rawSession(s._id)).overrideCount).toBe(0);
+  });
+
+  it('counts an override once when the first attempt fails and the student retries', async () => {
+    const { body: s } = await startSession(api, me.auth);
+    const override = () => api.post(`/api/sessions/${s._id}/override`).set(me.auth)
+      .send({ url: 'https://youtube.com/watch?v=abc', sessionGoal: GOAL, blockSensitivity: 'standard' });
+
+    vi.spyOn(fakeRedis, 'set').mockRejectedValueOnce(new Error('ECONNRESET'));
+    expect((await override()).status).toBe(500); // overlay stays up with an error
+    expect((await override()).status).toBe(200); // "Proceed anyway" again
+
+    expect((await rawSession(s._id)).overrideCount).toBe(1);
+  });
+
+  it('does not count a block on a session past its end time', async () => {
+    const { body: s } = await startSession(api, me.auth, { sessionGoal: GOAL, durationInMinutes: 30 });
+    await backdateSession(s._id, 31);
+    expect((await api.post(`/api/sessions/${s._id}/block`).set(me.auth)).status).toBe(409);
+    expect((await rawSession(s._id)).blockCount).toBe(0);
+  });
+
+  it('records a block in 3 database calls', async () => {
+    const { body: s } = await startSession(api, me.auth);
+    const calls = [];
+    // (not `find`: the driver's findOne calls it internally)
+    for (const op of ['findOne', 'insertOne', 'updateOne', 'updateMany']) {
+      const real = Collection.prototype[op];
+      vi.spyOn(Collection.prototype, op).mockImplementation(function (...args) {
+        calls.push(op);
+        return real.apply(this, args);
+      });
+    }
+
+    expect((await api.post(`/api/sessions/${s._id}/block`).set(me.auth)).status).toBe(200);
+    // close overdue sessions + look up (route: 404/403) + guarded increment
+    expect(calls).toEqual(['updateMany', 'findOne', 'updateOne']);
   });
 });
 

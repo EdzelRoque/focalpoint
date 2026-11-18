@@ -178,10 +178,13 @@ router.route('/sessions/:id/override')
             if (session.userId.toString() !== req.user.userId) {
                 return res.status(403).json({ error: 'Forbidden' });
             }
-            const updatedSession = await sessionData.incrementOverrideCount(sessionId);
+            if (!session.isActive) throw 'Session is already ended';
 
-            // Allow this URL+goal+blockSensitivity for this user only, so their next visit isn't re-blocked
+            // Allow this URL+goal+blockSensitivity for this user only, so their next visit isn't re-blocked.
+            // Recorded BEFORE counting: if this fails, the student retries and the
+            // override is still counted once. Re-recording is harmless (same key).
             await classificationData.recordOverride(userId, url, sessionGoal, blockSensitivity);
+            const updatedSession = await sessionData.incrementOverrideCount(sessionId);
 
             return res.json(updatedSession);
         } catch (error) {
